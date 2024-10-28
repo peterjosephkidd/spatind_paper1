@@ -30,7 +30,7 @@ refpts     <- read_xlsx(paste0(load.path, "DR_Stocks/StockInfo/icesData-AllSurve
 load(paste0(load.path, "/ICES Divs/ices_divs.rds"))
 load(paste0(load.path, "/ICES Rect/ices_rect.rds"))
 
-source("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Functions/dataprep_funs.R")
+source(paste0(getwd(),"/Functions/dataprep_funs.R"))
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Check stock divisions exist in ICES rect shapefile
