@@ -1288,9 +1288,6 @@ coginis <- function(hlhh, yrs, qrs, species_aphia, stk_divs, # data specifics
         dxy <- sqrt(dx^2 + dy^2)
         Inertia <- sum(d$z*(dxy^2))/sum(d$z)
           
-        #ix <- sum((dx^2)*d$z)/sum(d$z)
-        #iy <- sum((dy^2)*d$z)/sum(d$z)
-        Inertia <- ix+iy
         # Weighted PCA
         M11 <- sum(dx^2*d$z)
         M22 <- sum(dy^2*d$z)
