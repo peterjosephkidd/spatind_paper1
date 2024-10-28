@@ -3,6 +3,10 @@
 #>               4. Calculate Spatial Indicators
 #> 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#> This script takes the survey data a calculates a suite of spatial indicators
+#> for all of the individual stocks, for each source of survey data, and also
+#> for each L50 condition (sensitivity analysis to see if the L50 value used to
+#> identify matures in the survey data affects the spatial indicators.)
 
 library(dplyr)
 library(icesVocab)
@@ -11,30 +15,22 @@ library(ggplot2)
 
 rm(list = ls())
 
-load.path <- "C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/"
-save.path <- "C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/"
+# Load data
+stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
+refpts     <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 
-# Load data (numbers might change e.g. 31stks)
-stksurveys <- read_xlsx(paste0(load.path, "Data/DR_Stocks/icesSA_data/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
-ssb.vs.tb <- read_xlsx(paste0(load.path, "Data/DR_Stocks/icesSA_data/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
+load(paste0(getwd(), "/Data/Generated/DR_Stocks/FishBaseMaturity/FishBase-L50.rds")) # Lmat from data_3a_Mature.R
+load(paste0(getwd(), "/Data/Initial/ICES Divs/ices_divs.rds"))
+load(paste0(getwd(), "/Data/Initial/ICES Rect/ices_rect.rds"))
+load(paste0(getwd(), "/Data/Generated/DR_Stocks/StockNames/stk_names_3a.rds"))       # stk_names from data_3a_Mature.R
 
-refpts     <- read_xlsx(paste0(load.path, "Data/DR_Stocks/icesSA_data/icesData-69stks-AY2022-stkdescrptn.xlsx"))
-sa_data    <- read_xlsx(paste0(load.path, "Data/DR_Stocks/icesSA_data/icesData-69stks-AY2022-SA-data.xlsx"))
-
-load(paste0(load.path, "Data/DR_Stocks/FishBaseMaturity/FishBase-L50.rds"))
-load("~/OneDrive - CEFAS/Projects/C8503B/PhD/spatind-1/boot/initial/data/ices_shp/ICES Divs/ices_divs.rds")
-load("~/OneDrive - CEFAS/Projects/C8503B/PhD/spatind-1/boot/initial/data/ices_shp/ICES Rect/ices_rect.rds")
-
-# Load functions
-source(paste0(load.path, "Functions/spatinds_funs.R")) # for computing spatial indicators
+source(paste0(getwd(), "/Functions/spatinds_funs.R")) # for computing spatial indicators
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #>
 #>                                  Run Loop
 #>                    
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>                    
-
-load(paste0(save.path, "SurveyData/stks.rds")) # saved stks from data_2_DownloadDATRAS
 
 stksurveys_full <- stksurveys %>%
   filter(InDatras == 1) %>%
@@ -48,13 +44,13 @@ occ <- c("POPR", "POPH")
 agg <- c("Gini Index", "D95", "SA", "EA", "SPI")
 
 # SSB or Total Biomass
-stksurveys_full <- left_join(stksurveys_full, ssb.vs.tb[c("StockKeyLabel", "Type")], by = "StockKeyLabel")
+stksurveys_full <- left_join(stksurveys_full, refpts[c("StockKeyLabel", "Type")], by = "StockKeyLabel")
 
 spatinds <- data.frame()
 wrnlog <- list()
 
-for(i in c(1:length(stks))){
-  stk <- stks[i]
+for(i in c(1:length(stk_names))){
+  stk <- stk_names[i]
   #stk <- "lez.27.4a6a"
   #i <- which(stks == stk)
   
@@ -96,11 +92,12 @@ for(i in c(1:length(stks))){
     
       message(paste0(i, ".", j, ": ", stk, ", ", srv))
       
-      files <- list.files(paste0(load.path, "Data/DR_Stocks/SurveyData/", stk, "/matures/"), pattern = paste0("^", srv, "\\.Yr.*L50\\.", L50levels[lvl]), full.names = T)
+      files <- list.files(paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk), pattern = paste0("^", srv, "\\.Yr.*L50\\.", L50levels[lvl]), full.names = T)
       do.call(list, lapply(files, load, envir = .GlobalEnv))
       indices <- srvys[srvys$SurveyAcronymn == srv,]
       
       for(ind in 1:nrow(indices)){
+        
         srvindx <- indices[ind,]
         index <- srvindx$SurveyIndex
         
@@ -141,41 +138,34 @@ for(i in c(1:length(stks))){
           
           # Extent of Occurrence (EOO)
           writeLines("EOO")
-          
           eoo <- chullarea(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)[1:3]
           
           # Ellipse Area (ELA)
           writeLines("ELA")
-          
           ela <- ellarea(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)
           
           # Proportion of Presence
           # Rectangle (POPR)
           writeLines("POPR")
-          
           popr <- pa_rect(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)
           
           # Haul (POPH)
           writeLines("POPH")
-          
           poph <- pa_haul(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)
           
           # Gini index
           writeLines("Lorenz")
-          
           lorenz <- lorenz_data(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)
-          writeLines("Gini")
           
+          writeLines("Gini")
           gni <- Gini(lorenz, matures = mtr)
           
           # D95
           writeLines("D95")
-          
           D95 <- d95(lorenz)
           
           # Spreading Area (SA) & Equivalent Area (EA)
           writeLines("SA & EA")
-          
           sa_data <- spreadingarea_data(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)
           
           sa <- sa_data %>%
@@ -191,10 +181,10 @@ for(i in c(1:length(stks))){
           
           # Spread of Participation Index
           writeLines("SPI")
-          
           SPI <- spi(hlhh, yrs, qrs, species_aphia, stk_divs, matures = mtr)[c(1,2,4)]
           
           message("All spatial indicators calculated\n")
+          
           # Combine ouptuts
           df_list <- list(cginert, eoo, ela, popr, poph, gni, D95, sa, SPI) 
           
@@ -213,7 +203,7 @@ for(i in c(1:length(stks))){
                    ValidAphia    = paste0(species_aphia, collapse = ", "),
                    AreaList      = paste0(stk_divs, collapse = ", ")) 
           
-          # Add numer of data points in each yr/qr combo
+          # Add number of data points in each yr/qr combo
           sidf <- full_join(sidf, n.data, by = c("Year", "Quarter", "StockKeyLabel", "SurveyName", "SurveyIndex", "AreaList")) %>%
             relocate(StockKeyLabel, SurveyName, SurveyIndex, ValidAphia, Year, Quarter, n)
           sidf <- cbind (sidf, mtr, L50lvl = L50levels[lvl])
@@ -242,17 +232,51 @@ for(i in c(1:length(stks))){
   }
 }
 
-
 wrnlog
+
+spatinds <- spatinds %>%
+  mutate(id = paste0(StockKeyLabel, "-", SurveyName, "-", SurveyIndex, "-", Quarter, "-", ValidAphia, "-", mtr, "-", L50lvl))
+                       
 View(spatinds)
 
+suppressWarnings(dir.create(paste0(getwd(), "/Output/Data/SpatInds/"), recursive = TRUE))
+save(spatinds, file = paste0(getwd(), "/Output/Data/SpatInds/spatinds_4.rds"))
+
 # Summary of data
-spatinds %>%
+spatinds_smry <- spatinds %>%
   group_by(StockKeyLabel, SurveyName, SurveyIndex, Quarter, ValidAphia, mtr, L50lvl) %>%
   summarise(YrRange = paste0(range(Year), collapse = "-"),
             N.Data = sum(n, na.rm = T)) %>%
   arrange(Quarter, SurveyName, StockKeyLabel, L50lvl) %>%
   print(n = nrow(.))
 
-suppressWarnings(dir.create(paste0(save.path, "Outputs/SpatInds"), recursive = TRUE))
-save(spatinds, file = paste0(save.path, "Outputs/SpatInds/Spatial.indicators.rds"))
+save(spatinds_smry, file = paste0(getwd(), "/Output/Data/SpatInds/spatinds_summary_4.rds"))
+
+# Data for plotting
+spatinds_long <- tidyr::pivot_longer(
+  data = spatinds, 
+  cols = c(`CoG (x)`:SPI),
+  names_to = "Indicator",
+  values_to = "Value")
+
+save(spatinds_long, file = paste0(getwd(), "/Output/Data/SpatInds/spatinds_long_4.rds"))
+
+# Quick plot
+#load(paste0(getwd(), "/Output/Data/SpatInds/spatinds_long_4.rds"))
+
+stk <- sample(stk_names, 1) # or specify
+lvl <- "mean"
+
+plot_df <- filter(spatinds_long, 
+                  StockKeyLabel == sample(stk_names, 1), 
+                  L50lvl == lvl)
+
+ggplot(data = filter(spatinds_long, 
+                     StockKeyLabel == sample(stk_names, 1), 
+                     L50lvl == lvl)) +
+  geom_line(aes(x=Year, y=Value, colour=SurveyName, group=id, linetype=Quarter)) +
+  facet_wrap("Indicator", scales = "free_y") +
+  guides(colour   = guide_legend(order = 1),
+         linetype = guide_legend(order = 2)) +
+  ggtitle(stk)
+  
