@@ -40,7 +40,7 @@ roc_fun4 <- function(data, obs, preds, return = "long", p = FALSE, auclvl = 0.5,
   for(i in 1:length(preds)){
     pred <- preds[i]
     # select data
-    roc2 <- data %>% select("Year", "Quarter", "StockID", "SurveyIndex", "Survey", `Survey Index, Survey Name`)
+    roc2 <- data %>% select(all_of("Year", "Quarter", "StockID", "SurveyIndex", "Survey", `Survey Index, Survey Name`))
     roc2$obs <- data[obs]
     roc2$pred <- data[pred]
     roc2$status <- as.vector(roc2$obs >= 1)
@@ -277,8 +277,8 @@ rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, 
     
     roc_long <- rocoutput %>% 
       tidyr::pivot_longer(cols = colnames(rocoutput)[colnames(rocoutput) == pred], 
-                          names_to = "Spatial Indicator",
-                          values_to = "Spatial Indicator Value")
+                          names_to = "Indicator",
+                          values_to = "Value")
     
     roc_long <- data.table::as.data.table(roc_long)
     roc_longlist[[i]] <- roc_long
