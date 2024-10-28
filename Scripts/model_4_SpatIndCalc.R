@@ -265,15 +265,12 @@ save(spatinds_long, file = paste0(getwd(), "/Output/Data/SpatInds/spatinds_long_
 #load(paste0(getwd(), "/Output/Data/SpatInds/spatinds_long_4.rds"))
 
 stk <- sample(stk_names, 1) # or specify
-lvl <- "mean"
 
 plot_df <- filter(spatinds_long, 
-                  StockKeyLabel == sample(stk_names, 1), 
-                  L50lvl == lvl)
+                  StockKeyLabel == stk, 
+                  L50lvl == "mean")
 
-ggplot(data = filter(spatinds_long, 
-                     StockKeyLabel == sample(stk_names, 1), 
-                     L50lvl == lvl)) +
+ggplot(data = plot_df) +
   geom_line(aes(x=Year, y=Value, colour=SurveyName, group=id, linetype=Quarter)) +
   facet_wrap("Indicator", scales = "free_y") +
   guides(colour   = guide_legend(order = 1),
