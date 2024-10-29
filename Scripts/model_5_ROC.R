@@ -179,7 +179,7 @@ save(srvys_rem, file = paste0(getwd(), "/Output/Data/ROC/rocRem_long_surveys.rds
 # Quick plot
 #load(paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
 
-stk <- sample(stk_names, 1) # or specify
+stk <- sample(stk_names_rem, 1) # or specify
 plot_df <- filter(rocRem_long, 
                   StockKeyLabel == stk, 
                   L50lvl == "mean", 
