@@ -32,11 +32,11 @@ pivot_long_heatmap <- function(heatmap_data, col_index) {
 
 plot_heatmap <- function(heatmap_data, 
                          y_order = sort(unique(heatmap_data$col_index)), 
-                         x_order = sort(unique(heatmap_data$`Spatial Indicator`)), 
+                         x_order = sort(unique(heatmap_data$Indicator)), 
                          filter_var = NULL, filter_val = NULL) {
   
   heatmap_data$col_index <- factor(heatmap_data$col_index, level = rev(y_order))
-  heatmap_data$`Spatial Indicator` <- factor(heatmap_data$`Spatial Indicator`, level = x_order)
+  heatmap_data$Indicator <- factor(heatmap_data$Indicator, level = x_order)
   
   if (!is.null(filter_var) && !is.null(filter_val)) {
     filter_conditions <- Map(function(var, val) heatmap_data[[var]] == val, filter_var, filter_val)
@@ -46,7 +46,7 @@ plot_heatmap <- function(heatmap_data,
   }
   
   ggplot(plot_data, aes(y = col_index, 
-                        x = `Spatial Indicator`, 
+                        x = Indicator, 
                         fill = Mean)) +
     geom_tile() +
     geom_text(aes(label = cond)) +
@@ -62,7 +62,7 @@ plot_heatmap <- function(heatmap_data,
 
 auc_stats <- function(bindata, group_vars = NULL, avg_across_L50 = FALSE) {
   stats_1 <- bindata %>%
-    group_by_at(vars(all_of(c("Spatial Indicator", "L50lvl", group_vars)))) %>%
+    group_by_at(vars(all_of(c("Indicator", "L50lvl", group_vars)))) %>%
     summarise(ind_category = unique(ind_category),
               n = length(AUC),                # sample points (number of AUC values)
               mu = mean(AUC),                 # mean
@@ -88,7 +88,7 @@ auc_stats <- function(bindata, group_vars = NULL, avg_across_L50 = FALSE) {
   } else {
     # Calculate the mean across L50 with SE representing variaince across sensitivity tests
     stats_2 <- stats_1 %>%
-      group_by_at(vars(all_of(c("Spatial Indicator", "ind_category", group_vars)))) %>%
+      group_by_at(vars(all_of(c("Indicator", "ind_category", group_vars)))) %>%
       summarise(n = length(mu),                   # sample points (number of means)
                 mu2 = mean(mu),                   # mean of means
                 SS = sum((mu2 - mu)^2),           # sum of squares
@@ -124,9 +124,9 @@ create_auc_bindata <- function(auc_summary_data, bins = seq(0,1, by = 0.1)) {
 }
 
 create_auc_binfreq <- function(bindata){
-  binfreq_data <- table(bindata[["Spatial Indicator"]], bindata[["AUC_bin"]], bindata[["L50lvl"]]) %>%
+  binfreq_data <- table(bindata[["Indicator"]], bindata[["AUC_bin"]], bindata[["L50lvl"]]) %>%
     as.data.frame(.) %>%
-    rename(`Spatial Indicator` = Var1,
+    rename(Indicator = Var1,
            L50lvl = Var3,
            AUC_bin = Var2) %>%
     mutate(
@@ -149,7 +149,7 @@ plot_auc_binfreq <- function(binfreq_data, auc_stats_data) {
   
   # Add Density
   Ndens <- binfreq_data %>%
-    group_by(L50lvl, `Spatial Indicator`) %>%
+    group_by(L50lvl, Indicator) %>%
     summarise(N = sum(Freq))
 
   binfreq_data <- left_join(binfreq_data, Ndens, by = c("L50lvl", "Spatial Indicator")) %>%
@@ -175,7 +175,7 @@ plot_auc_binfreq <- function(binfreq_data, auc_stats_data) {
     geom_vline(data = auc_stats_data, aes(xintercept = mu)) +
     scale_x_continuous(limits = c(0.1, 1), breaks = seq(0.1, 1, by = 0.1), expand = c(0,0)) +
     scale_y_continuous(limits = c(0, 0.35), breaks = seq(0.1, 1, by = 0.1), expand = c(0,0)) +
-    facet_wrap(vars(factor(`Spatial Indicator`, levels = c(indorder))), scale = "free_x") +
+    facet_wrap(vars(factor(Indicator, levels = c(indorder))), scale = "free_x") +
     theme(axis.text.x = element_text(hjust=1),
           # Panels
           panel.grid.major.y = element_line(colour = "grey90"),
@@ -205,7 +205,7 @@ plot_auc_hist <- function(binfreq_data, auc_stats_data, L50_test = "Mean"){
     geom_vline(data = auc_stats_data_long[auc_stats_data_long$SummaryStat %in% c("mu", "median_auc") & auc_stats_data_long$L50lvl == "mean",], 
                aes(xintercept = Value, linetype = factor(SummaryStat, labels = c("Median", "Mean")))) +
     labs(x = "AUC Bins", y = "Frequency", title = paste0("Histogram of AUC Scores (L50 = ", L50_test, ")")) +
-    facet_wrap(vars(factor(`Spatial Indicator`, levels = c(indorder))), scales = "free_x") +
+    facet_wrap(vars(factor(Indicator, levels = c(indorder))), scales = "free_x") +
     scale_x_continuous(breaks = seq(0,1, by=.1), expand = c(0,0)) +
     scale_y_continuous(breaks = seq(0,20, by = 2), expand = c(0,0)) +
     theme(axis.text.x = element_text(hjust=1),
@@ -223,7 +223,7 @@ plot_auc_hist <- function(binfreq_data, auc_stats_data, L50_test = "Mean"){
     coord_cartesian(ylim = c(0,17))
 }
 
-plot_auc_barchart <- function(data, indorder = sort(unique(data$`Spatial Indicator`)), facet_var = NULL, facet_order = NULL) {
+plot_auc_barchart <- function(data, indorder = sort(unique(data$Indicator)), facet_var = NULL, facet_order = NULL) {
   
   if (!is.null(facet_order)) {
     data[[facet_var]] <- factor(data[[facet_var]], levels = facet_order)
@@ -231,7 +231,7 @@ plot_auc_barchart <- function(data, indorder = sort(unique(data$`Spatial Indicat
     data[[facet_var]] <- factor(data[[facet_var]])
   }  
   
-  ggplot(data, aes(x = factor(`Spatial Indicator`, levels = c(indorder)))) +
+  ggplot(data, aes(x = factor(Indicator, levels = c(indorder)))) +
     geom_col(     aes(y = mu, fill = ind_category)) +
     geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci)) +
     geom_text(    aes(y = mu + 0.1, label = cond)) +
@@ -258,7 +258,8 @@ df_to_latex <- function(df, caption = "Generated Table", label = "tab:my_table",
                         format_rows = NULL, format_cols = NULL, format_style = NULL, 
                         bold_header = FALSE, wrap_text = NULL, text_width = NULL, 
                         font_size = NULL, file_path = NULL, 
-                        nest_cols = NULL, nest_cols_rename = NULL, nest_header = NULL, longtable = FALSE, position = "ht") {
+                        nest_cols = NULL, nest_cols_rename = NULL, nest_header = NULL, 
+                        longtable = FALSE, position = "ht", format_perc = FALSE) {
   
   # Check if the dataframe is empty
   if (nrow(df) == 0) {
@@ -293,6 +294,13 @@ df_to_latex <- function(df, caption = "Generated Table", label = "tab:my_table",
       stop("Length of nest_header must match the number of nested column groups.")
     }
   }
+  
+  # Format % signs
+  if (format_perc) {
+    df <- df %>%
+      mutate(across(everything(), ~ gsub("%", "\\%", ., fixed = TRUE)))
+  }
+  
   
   # Construct column alignment string with wrapping if needed
   align_str <- sapply(seq_along(align), function(i) {
@@ -365,8 +373,8 @@ df_to_latex <- function(df, caption = "Generated Table", label = "tab:my_table",
     og_headers <- which(colnames(df) %in% colnames(df)[!1:ncol(df) %in% unlist(nest_cols)])
     
     if (bold_header) {
-      og_headers_1 <- paste0("\\textbf{", colnames(df)[which(og_headers < min(unlist(nest_cols)))], "} & ", collapse = "")
-      og_headers_2 <- paste0("\\textbf{", colnames(df)[which(og_headers > max(unlist(nest_cols)))], "} & ", collapse = "")
+      og_headers_1 <- paste0("\\textbf{", colnames(df)[og_headers[which(og_headers < min(unlist(nest_cols)))]], "} & ", collapse = "")
+      og_headers_2 <- paste0("\\textbf{", colnames(df)[og_headers[which(og_headers > max(unlist(nest_cols)))]], "} & ", collapse = "")
     } else{
       og_headers_1 <- paste0(colnames(df)[which(og_headers < min(unlist(nest_cols)))], " & ", collapse = "")
       og_headers_2 <- paste0(colnames(df)[which(og_headers > max(unlist(nest_cols)))], " & ", collapse = "")
@@ -435,6 +443,10 @@ df_to_latex <- function(df, caption = "Generated Table", label = "tab:my_table",
       latex_str <- paste0(latex_str, paste(row, collapse = " & "), " \\\\ \n")
     }
     latex_str <- paste0(latex_str, row_spacing, "\n")
+    
+    if ("penult" %in% borders & i == nrow(df)-1) {
+      latex_str <- paste0(latex_str, "\\midrule\n")
+    }
   }
   
   # Close the tabular environment
