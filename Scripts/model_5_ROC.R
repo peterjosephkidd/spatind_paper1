@@ -125,6 +125,7 @@ any(is.na(rocAll_long$AUC))
 suppressWarnings(dir.create(paste0(getwd(), "/Output/Data/ROC"), recursive = T))
 save(rocAll_long, file = paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
 
+################################################################################
 #> Not all surveys are informative. A long timeseries with contrast in stock
 #> status is ideal for telling us whether an indicator can reliably classify 
 #> stock status. We filter to surveys with at least 15 years of survey data
@@ -132,6 +133,7 @@ save(rocAll_long, file = paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
 ## Filter to good surveys
 
 # How much contrast in SSB/MSYB trigger in each time series:
+#load(paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
 ROContrast <- rocAll_long %>%
   select(StockKeyLabel, Year, Quarter, SurveyNameIndex, status, Value) %>%
   na.omit() %>%
@@ -176,9 +178,8 @@ srvys_rem <- rocRem_long %>%
 srvys_rem
 save(srvys_rem, file = paste0(getwd(), "/Output/Data/ROC/rocRem_long_surveys.rds"))
 
-# Quick plot
-#load(paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
-
+# Quick plot ###################################################################
+#load(paste0(getwd(), "/Output/Data/ROC/rocRem_long.rds"))
 stk <- sample(stk_names_rem, 1) # or specify
 plot_df <- filter(rocRem_long, 
                   StockKeyLabel == stk, 
@@ -196,3 +197,92 @@ ggplot(data = plot_df) +
   geom_hline(yintercept = 0.5, linetype = 2) +
   ggtitle(stk) +
   theme(axis.text.x = element_blank())
+
+# Summarise AUC ################################################################
+#load(paste0(getwd(), "/Output/Data/ROC/rocRem_long.rds"))
+
+# Add more information on the stocks
+metadata <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
+all(rocRem_long$StockKeyLabel %in% metadata$StockKeyLabel)
+rocRem_long_meta <- left_join(rocRem_long, metadata[c("StockKeyLabel", "SpeciesCommonName", "SpeciesScientificName", "ExpertGroup", "TrophicGuild", "FisheriesGuild", "SizeGuild")], by = "StockKeyLabel")
+
+# Indicator order
+indorder <- c("CoG (x)", "CoG (y)",      # Location
+  "Inertia", "EOO", "ELA",                # Dispersion
+  "POPR", "POPH",                         # Occupancy
+  "Gini Index", "D95", "SA",              # Aggregation 
+  "EA", "SPI")
+
+# Add growth rate k
+growth <- c()
+species.list <- na.omit(unique(rocRem_long_meta$SpeciesScientificName))
+
+for (i in 1:length(species.list)) {
+  
+  SpeciesScientificName <- species.list[i]
+  
+  if (SpeciesScientificName == "Lepidorhombus") {
+    warning("\nlez.27.4a6a is a combined stock of Megrim", immediate. = T)
+  } else {
+    
+    message(paste0("\n", SpeciesScientificName))
+    Genus   <- strsplit(SpeciesScientificName, " ")[[1]][1]
+    Species <- strsplit(SpeciesScientificName, " ")[[1]][2]
+    
+    par <- SPMpriors::flmvn_traits(Genus, Species, Plot = FALSE)
+    K <- par$traits[2,]
+    output <- cbind(SpeciesScientificName, K)
+    growth <- rbind(growth, output)
+    
+  }
+}
+
+#growth <- (rbind(growth, growth[growth$SpeciesScientificName == "Lepidorhombus whiffiagonis",]))
+#growth[nrow(growth),]$SpeciesScientificName <- "Lepidorhombus" # using whif for combined megrim stocks, as boscii is rare
+growth <- rename(growth, GrowthRateK = mu.sp)
+
+rocRem_long_meta <- full_join(rocRem_long_meta, growth[c("SpeciesScientificName", "GrowthRateK")], by = "SpeciesScientificName")
+
+# Categorise indicators
+loc <- c("CoG (x)", "CoG (y)")                   # Location
+ran <- c("Inertia", "EOO", "ELA")                # Dispersion
+occ <- c( "POPR", "POPH")                        # Occupancy
+agg <- c("Gini Index", "D95", "SA", "EA", "SPI") # Aggregation
+
+rocRem_long_meta <- rocRem_long_meta %>%
+  mutate(ind_category = case_when(
+    Indicator %in% loc ~ "Location",
+    Indicator %in% ran ~ "Dispersion",
+    Indicator %in% occ ~ "Occupancy",
+    Indicator %in% agg ~ "Aggregation",
+    TRUE ~ NA_character_
+  ))
+
+rocRem_long_meta$ind_category <- factor(
+  rocRem_long_meta$ind_category, levels = c("Location", 
+    "Occupancy", "Dispersion", "Aggregation"))
+
+# Save 
+save(rocRem_long_meta, file = paste0(getwd(), "/Output/Data/ROC/rocRem_long_meta.rds"))
+
+# Summarise AUC data
+auc_summary <-  rocRem_long_meta %>%
+  group_by(StockKeyLabel, SurveyName, SurveyIndex, SurveyNameIndex, Quarter) %>%
+  select(StockKeyLabel, SurveyNameIndex, SpeciesCommonName, SpeciesScientificName,
+         Quarter, ind_category, Indicator, 
+         L50lvl,  AUC, GrowthRateK, FisheriesGuild,  Year) %>%
+  mutate(Years = paste0(min(Year[Year != min(Year)]), "-", max(Year)),
+         YearLength = max(Year) - min(Year[Year != min(Year)])) %>%
+  ungroup() %>%
+  select(-Year) %>%
+  distinct() %>%
+  group_by(StockKeyLabel, SurveyNameIndex, Quarter, Indicator, L50lvl) %>%
+  #na.omit() %>%
+  mutate(xaxis = paste0(StockKeyLabel, ": ", SurveyName, ", Q", Quarter)) %>%
+  print(n = 20)
+
+# Add stock status contrast ratio
+auc_summary <- left_join(auc_summary, ROContrast[c(1:3,7)], by = c("StockKeyLabel", "SurveyNameIndex", "Quarter"))
+
+# Save
+save(auc_summary, file = paste0(getwd(), "/Output/Data/ROC/auc_summary.rds"))  
