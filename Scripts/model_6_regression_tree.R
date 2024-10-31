@@ -3,16 +3,25 @@
 #>                      Random Forest/Regression tree
 #> 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-library(dplyr)
-library(ggplot2) 
+#> This script uses AUC data from model_5_ROC.R. We are interested in what 
+#> predicts AUC. First, we look at whether L50 condition is a good predictor of 
+#> AUCs. We include the data/AUCs from the three L50 conditions. 
+#> We do this by performing recursive feature elimination (RFE). We then 
+#> perform RFE again (without L50 condition as a predictor), to predict the AUCs
+#> from just the outputs from when L50 mean was used to identify matures in 
+#> survey data. Using the key features identified by the RFE, we then 
+#> perform regression tree analysis. 
+
+library(dplyr) #
+library(ggplot2) #
 library(randomForest)
 library(party)
 library(partykit)
 library(plotrix)
-library(readxl)
+library(readxl) # 
 library(rpart)
 library(rpart.plot)
-library(caret)
+library(caret) # 
 library(vip)
 library(rattle)
 
@@ -34,33 +43,23 @@ if(!('reprtree' %in% installed.packages())){
 for(p in c(cran.packages, 'reprtree')) eval(substitute(library(pkg), list(pkg=p)))
 
 
-# Load auc data ####
-load.path <- "C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/"
-source("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Functions/results_funs.R")
-
-### AUC Data
-load(paste0(load.path, "ROC/auc_summary_good_surveys.xlsx.rds"))  
-### Survey Coverage data
-survey_coverage <- read_xlsx("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/icesSA_data/icesData-stksurveys-survcoverage.xlsx")
-### Expected survyes for cross checking
-load("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/expected-surveys.rds")
-### Info on ecorgeions, WGs, size guilds etc for each stok
-stock_info <- read_xlsx("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/icesSA_data/icesData-AllSurveyData-manual.xlsx", sheet = "Stocks")
-### L50 data
-load("~/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/FishBaseMaturity/FishBase-L50.rds")
+# Load data and functions
+load(paste0(getwd(), "/Output/Data/ROC/auc_summary.rds"))         # AUC Data
+load(paste0(getwd(), "/Output/Data/ROC/rocRem_long_surveys.rds")) # final survey list
+load(paste0(getwd(), "/Output/Data/ROC/rocRem_long_stocks.rds"))  # final stock list
+stock_info <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
+load(paste0(getwd(), "/Data/Generated/DR_Stocks/FishBaseMaturity/FishBase-L50.rds")) # Life history data
+source(paste0(getwd(), "/Functions/results_funs.R"))              # user functions 
 
 # Tidy data ####
-# The number of rectnagles in each stock region
-stock_area <- survey_coverage %>% 
-  select(StockKeyLabel, StkRects) %>% 
-  distinct()
-
 # Some grop variables for each stock
 stock_vars <- stock_info %>% 
+  filter(StockKeyLabel %in% stk_names_rem) %>%
   select(StockKeyLabel, EcoRegion, TrophicGuild, SizeGuild)
 
-# The ecoregions that each stock encompasses
+# One hot encode ecoregion
 ecoregions <- stock_info %>%
+  filter(StockKeyLabel %in% stk_names_rem) %>%
   select(StockKeyLabel, EcoRegion) %>%
   mutate(EcoRegion = strsplit(EcoRegion, ", ")) %>%
   tidyr::unnest(., EcoRegion) %>%
@@ -82,15 +81,13 @@ stockno <- auc_summary %>%
 
 # Merge extra variables
 auc_summary <- left_join(auc_summary, stockno, by = "StockKeyLabel")
-auc_summary <- left_join(auc_summary, stock_area[c("StockKeyLabel", "StkRects")], by = "StockKeyLabel")
 auc_summary <- left_join(auc_summary, stock_vars, by = "StockKeyLabel")
 auc_summary <- left_join(auc_summary, ecoregions_wide, by = "StockKeyLabel")
 auc_summary <- left_join(auc_summary, Lmat[c("StockKeyLabel", "L50MeanVal", "Linf", "Lmat_Linf", "Family", "Order", "Class", "Genus", "Species")], by = "StockKeyLabel")
 
 # Factorise categorical variables
 auc_summary <- auc_summary %>%
-  rename(SpatialIndicator = `Spatial Indicator`) %>%
-  mutate_at(vars(SurveyName, StockKeyLabel, SpeciesCommonName, SpeciesScientificName, Quarter, ind_category, SpatialIndicator, L50lvl, FisheriesGuild, Family, Order, Class, Genus, Species), factor) %>%
+  mutate_at(vars(SurveyName, StockKeyLabel, SpeciesCommonName, SpeciesScientificName, Quarter, ind_category, Indicator, L50lvl, FisheriesGuild, Family, Order, Class, Genus, Species), factor) %>%
   group_by(StockKeyLabel) %>%
   mutate(StockNo = order(unique(StockKeyLabel)))
 head(auc_summary)
@@ -99,13 +96,11 @@ head(auc_summary)
 # Predictors ####
 set.seed(2512)
 
+# Define predictor variables (predicting AUC)
 names(auc_summary)
-# Define predictor variables
-
 pred_set1 <-  gsub(" ", "", c(### Survey Predictors 
                "SurveyName",
                "Quarter",
-               "AvgSurveyCoverage", 
                "YearLength",
                "Ratio.P2G",
                ### Stock Predictors
@@ -122,7 +117,6 @@ pred_set1 <-  gsub(" ", "", c(### Survey Predictors
                "Baltic Sea Ecoregion", 
                "Azores Ecoregion",
                "Barents Sea Ecoregion",
-               "StkRects",
                ### Species Predictors
                "Family",
                "Order",
@@ -138,7 +132,7 @@ pred_set1 <-  gsub(" ", "", c(### Survey Predictors
                "Linf",
                "Lmat_Linf",
                ### Indicator predictors
-               "SpatialIndicator",
+               "Indicator",
                "ind_category"))
 
 pred_set2 <-  gsub(" ", "", c(### Survey Predictors 
@@ -215,31 +209,26 @@ pred_set3 <-  gsub(" ", "", c(### Survey Predictors
   ))
 
 
-
-
-
-# Feature selection ####
-# Is L50 an important feature?
-preds <- pred_set1
+# Recursive Feature Elimination ####
+# Are there differences in AUC between the three L50 conditions?
+preds <- pred_set1[pred_set1!="L50MeanVal"]
 
 data <- auc_summary %>%
   ungroup() %>%
   select(AUC, all_of(preds))
 
-preds <- pred_set1[pred_set1!="L50MeanVal"]
-
 subsets <- c(1:length(preds))
 
-rfe_ctrl <- rfeControl(functions = rfFuncs,
+rfe_ctrl <- caret::rfeControl(functions = rfFuncs,
                        method = "repeatedcv", 
                        repeats = 5,
                        number = 10,
                        verbose = F)
 
-feature_sel <- rfe(x = data[,-1], 
-                   y = as.matrix(data[,1]),
-                 sizes = subsets,
-                 rfeControl = rfe_ctrl)
+feature_sel <- rfe(x          = data[,-1], 
+                   y          = as.matrix(data[,1]),
+                   sizes      = subsets,
+                   rfeControl = rfe_ctrl)
 
 save(feature_sel, file = "C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/feature_selection.rds")
 load("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/feature_selection.rds")
