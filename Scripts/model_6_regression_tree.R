@@ -14,14 +14,15 @@
 
 library(dplyr) #
 library(ggplot2) #
+library(caret) # 
+library(readxl) # 
+
 library(randomForest)
 library(party)
 library(partykit)
 library(plotrix)
-library(readxl) # 
 library(rpart)
 library(rpart.plot)
-library(caret) # 
 library(vip)
 library(rattle)
 
@@ -98,7 +99,7 @@ set.seed(2512)
 
 # Define predictor variables (predicting AUC)
 names(auc_summary)
-pred_set1 <-  gsub(" ", "", c(### Survey Predictors 
+pred_set  <-  gsub(" ", "", c(### Survey Predictors 
                "SurveyName",
                "Quarter",
                "YearLength",
@@ -135,83 +136,9 @@ pred_set1 <-  gsub(" ", "", c(### Survey Predictors
                "Indicator",
                "ind_category"))
 
-pred_set2 <-  gsub(" ", "", c(### Survey Predictors 
-  #"SurveyName",
-  "Quarter",
-  #"AvgSurveyCoverage", 
-  "YearLength",
-  #"Ratio.P2G",
-  ### Stock Predictors
-  #"StockKeyLabel",
-  #"Bay of Biscay and the Iberian Coast Ecoregion",
-  #"Celtic Seas Ecoregion",
-  #"Greater North Sea Ecoregion",
-  #"Oceanic Northeast Atlantic Ecoregion",
-  #"Greenland Sea Ecoregion",
-  #"Iceland Sea Ecoregion",
-  #"Faroes Ecoregion",
-  #"Arctic Ocean Ecoregion",
-  #"Norwegian Sea Ecoregion",
-  #"Baltic Sea Ecoregion", 
-  #"Azores Ecoregion",
-  #"Barents Sea Ecoregion",
-  "StkRects",
-  ### Species Predictors
-  "Family",
-  "Order",
-  "Class",
-  "Genus",
-  "Species",
-  "FisheriesGuild",
-  "SizeGuild",
-  "TrophicGuild",
-  "GrowthRateK",
-  "L50MeanVal",
-  "L50lvl",
-  "Linf",
-  "Lmat_Linf",
-  ### Indicator predictors
-  "SpatialIndicator",
-  "ind_category"))
-
-pred_set3 <-  gsub(" ", "", c(### Survey Predictors 
-  "SurveyName",
-  "Quarter",
-  "AvgSurveyCoverage", 
-  "YearLength",
-  #"Ratio.P2G",
-  ### Stock Predictors
-  #"StockKeyLabel", 
-  "Bay of Biscay and the Iberian Coast Ecoregion",
-  #"Celtic Seas Ecoregion",
-  #"Greater North Sea Ecoregion",
-  #"Oceanic Northeast Atlantic Ecoregion",
-  #"Greenland Sea Ecoregion",
-  #"Iceland Sea Ecoregion",
-  #"Faroes Ecoregion",
-  #"Arctic Ocean Ecoregion",
-  #"Norwegian Sea Ecoregion",
-  #"Baltic Sea Ecoregion", 
-  #"Azores Ecoregion",
-  #"Barents Sea Ecoregion",
-  "StkRects",
-  ### Species Predictors
-  #"SpeciesCommonName",
-  "FisheriesGuild",
-  "SizeGuild",
-  "TrophicGuild",
-  "GrowthRateK",
-  "L50MeanVal",
-  ### Indicator predictors
-  "SpatialIndicator",
-  "ind_category"
-  #"L50lvl"
-  ))
-
-
-# Recursive Feature Elimination ####
+# Recursive Feature Elimination ################################################
 # Are there differences in AUC between the three L50 conditions?
-preds <- pred_set1[pred_set1!="L50MeanVal"]
+preds <- pred_set[pred_set!="L50MeanVal"]
 
 data <- auc_summary %>%
   ungroup() %>%
@@ -230,36 +157,44 @@ feature_sel <- rfe(x          = data[,-1],
                    sizes      = subsets,
                    rfeControl = rfe_ctrl)
 
-save(feature_sel, file = "C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/feature_selection.rds")
-load("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/feature_selection.rds")
+suppressWarnings(dir.create(paste0(getwd(), "/Output/Data/RFE/"), recursive = TRUE))
+save(feature_sel, file = paste0(getwd(), "/Output/Data/RFE/feature_sel_L50.rds"))
+
+#load(paste0(getwd(), "/Output/Data/RFE/feature_sel_L50.rds"))
 
 feature_sel
 predictors(feature_sel)
 plot(feature_sel, type=c("g", "o"))
 
-# L50 is not an important feature
+# L50 is not an important feature ##############################################
 # Filter to L50 mean data and remove L50lvl as a predictor
 # Re-run feature selection to see what is now important
 L50mean_data <- data %>%
-  filter(L50lvl == "mean") %>%
-  select(-c("L50lvl", "Ratio.P2G", "AvgSurveyCoverage", "YearLength"))
+  filter(L50lvl == "mean")
 
-preds <- pred_set1[!pred_set1 %in% c("L50lvl", "Ratio.P2G", "AvgSurveyCoverage", "YearLength")]
+preds <- pred_set[pred_set!="L50lvl"]
 
-feature_sel2 <- rfe(x = L50mean_data[,-1], 
-                   y = as.matrix(L50mean_data[,1]),
+data <- auc_summary %>%
+        ungroup() %>%
+        filter(L50lvl == "mean") %>%
+        select(AUC, all_of(preds))
+
+feature_sel2 <- rfe(x = data[,-1], 
+                   y = as.matrix(data[,1]),
                    sizes = subsets,
                    rfeControl = rfe_ctrl)
 
-save(feature_sel2, file = "C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/feature_selection_meanL50.rds")
-load("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/feature_selection_meanL50.rds")
+save(feature_sel2, file = paste0(getwd(), "/Output/Data/RFE/feature_sel_meanL50.rds"))
+load(paste0(getwd(), "/Output/Data/RFE/feature_sel_meanL50.rds"))
+
+#load(paste0(getwd(), "/Output/Data/RFE/feature_sel_meanL50.rds"))
 
 feature_sel2
 predictors(feature_sel2)
 plot(feature_sel2, type=c("g", "o"))
 
 
-# Regression Tree ####
+# Regression Tree ##############################################################
 # Fit a regression tree using the selected features as predictors of AUC
 features <- predictors(feature_sel2)
 #features <- pred_set2[!pred_set2 %in% c("YearLength", "L50lvl")]
