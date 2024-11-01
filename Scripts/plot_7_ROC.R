@@ -702,7 +702,7 @@ vip_plot
 ggsave(paste0(getwd(), "/Output/Plots/Supplementary/variable_importance.png"), 
        vip_plot, height = 2.5, width = 3.5)
 
-# ROC matrix example ###########################################################
+## ROC matrix example ##########################################################
 
 y <- c("Positive", "Negative")
 x <- c("Negative", "Positve")
@@ -884,3 +884,157 @@ exampleroc <- cowplot::plot_grid(rocperf, rocrand, rocimp, nrow = 1,
 
 ggsave(paste0(getwd(), "/Output/Plots/ROCurveGuide.png"), exampleroc, width = 10, height = 3)
 
+## Spatial Indicator Map #######################################################
+source(paste0(getwd(), "/Functions/spatinds_funs.R"))
+load(paste0(getwd(), "/Output/Data/ROC/rocRem_long_surveys.rds"))
+load(paste0(getwd(), "/Data/Initial/ICES Rect/ices_rect.rds"))
+stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
+
+# Stock
+i <- 9
+stk <- stk_names_rem[i]
+stk_divs <- unique(filter(stksurveys, StockKeyLabel == stk)$Divisions)
+
+# Species
+species <- unique(auc_summary$SpeciesScientificName[auc_summary$StockKeyLabel==stk])
+species_aphia <- icesVocab::findAphia(species, latin = TRUE)
+
+# Survey
+j <- 1
+srv <- filter(srvys_rem, StockKeyLabel == stk)$SurveyName[j]
+qrs <- filter(srvys_rem, StockKeyLabel == stk)$Quarter[j]
+
+# Survey Data
+load(
+  list.files(paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/"), 
+             pattern = paste0("^", srv, ".*\\.HLHH\\.L50\\.mean--", stk, "\\.rds$"), 
+             full.names = TRUE)
+  )
+
+yrs <- unique(hlhh$Year)
+
+# Snapshot
+yr <- 2007
+
+occ_ran_plot <- mapdis(hlhh, yr, qrs, species_aphia, stk_divs, ices_rect, matures = TRUE, # data specifics
+                       cog = F, inertia = F, EOO = T, ELA = T, # spatial indicators
+                       density = T,                           # weight cog and inertia
+                       km2lonlat = F,                                  # convert km to lonlat
+                       title = "",                                     # plot title
+                       xlim = c(-11, -2), ylim = c(51, 61)) +
+  theme_classic() +
+  labs(title =  bquote(italic(.(species)) ~ "(whg.27.6a)"), subtitle = paste0(srv, " ",yr, " Q", qrs)) +
+  #labs(title = "", subtitle = "") +
+  theme(
+    panel.grid.major.y = element_line(colour = "grey90"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    panel.background   = element_blank(),
+    panel.border       = element_rect(colour = "black", fill = NA),
+    strip.background   = element_rect(colour = "black")
+  )
+
+occ_ran_plot
+
+ggsave(filename = paste0(getwd(), "/Output/Plots/POP-EOO-ELA-title.png"), occ_ran_plot, width = 7, height = 7)
+
+## Lorenz Curve ################################################################
+lorenz <- lorenz_data(hlhh, yrs, qrs, species_aphia, stk_divs, matures = TRUE)
+gni <- Gini(lorenz, matures = TRUE)
+D95 <- d95(lorenz)
+
+lorplot <- ggplot(data = lorenz[lorenz$Year %in% c(yr),], aes(x = rect_num_prop, y = cumsum_prop)) + 
+  geom_area(aes(group = Year), fill = "cyan4", alpha = 0.5) +
+  geom_line(aes(group = Year), colour = "black") +
+  coord_cartesian(ylim= c(-0.02,1.02), xlim = c(0,1.02), expand = FALSE) +
+  labs(x = "Culmuative Proportion of ICES Rectangles", 
+       y = "Culmuative Proportion of Density") +
+  theme(axis.line.x = element_line(colour = 'black', linetype='solid'),
+        axis.line.y = element_line(colour = 'black', linetype='solid'),
+        plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 8))+
+  scale_colour_gradientn(colours = rainbow(3), name = "Year") +
+  guides(alpha = "none") +
+  annotate("segment", x = 0.95, y = 0, yend = 1, xend = 0.95, colour = "red2", size = 0.3) +
+  annotate("label", x = 0.75, y = 0.375, label = "A", size = 3) +
+  annotate("label", x = 0.875, y = 0.125, label = "B", size = 3) + 
+  annotate("text", x = 0.2, y = 0.9, label = paste0("1-Gini = ", round(gni[gni$Year == yr,]$`Gini Index`,2)), size = 3) +
+  annotate("text", x = 0.2, y = 0.8, label = paste0("D95 = ", round(D95[D95$Year == yr,]$D95,2)), size = 3) +
+  annotate("rect", xmin = 0, ymin = 0, ymax = 0, xmax = 1, colour = "black") +
+  annotate("rect", xmin = 1, ymin = 0, ymax = 1, xmax = 1, colour = "black") +
+  annotate("segment", x = 0, y = 0, yend = 1, xend = 1, colour = "black", linetype = 2, size = 0.3) +
+  theme(
+    panel.grid.major.y = element_line(colour = "grey90"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    panel.background   = element_blank(),
+    #panel.border       = element_rect(colour = "black", fill = NA),
+    strip.background   = element_rect(colour = "black")
+  ) +
+  labs(x = "T", y = "Q(T)/Q")
+
+lorplot
+
+ggsave(filename = paste0(getwd(), "/Output/Plots/lorenz_curve.png"), lorplot, width = 3.5, height = 3)
+
+## Spreading Area Curve ########################################################
+sa_data <- spreadingarea_data(hlhh, yrs, qrs, species_aphia, stk_divs, matures = TRUE)
+spreadingarea_calc(sa_data[sa_data$Year == yr,]$TotalNoMature_Dur, plot = T)
+
+z <- lorenz[lorenz$Year == yr,]$TotalNoMature_Dur
+
+# extract data
+nb <-length(z)
+
+# sort data in increasing order
+#zi <- sort(z,index.return=T)
+z <- sort(z)
+w <- rep(1, length(z))
+
+# computation of the spreading area 
+Q <- sum(z*w)
+QT <- c(0,cumsum(z*w))
+QT_Q <- QT/Q
+SA <- sum((QT[1:nb]+QT[2:(nb+1)])*w)/Q
+
+# computation of (Q-Q(T))/Q as a function of T
+fT <- c(0,cumsum(w))
+fT <- fT[nb+1] - fT
+fT <- rev(fT)
+Tprop <- fT/max(fT)
+QT <- QT[nb+1] - QT
+QT <- rev(QT)
+
+df <- as.data.frame(cbind(Year = yr, QT_Q, Tprop, fT))
+
+sa_plot <- ggplot(data = df, aes(x = fT, y = QT_Q)) + 
+  geom_area(aes(group = Year), fill = "cyan4", alpha = 0.5) +
+  geom_line(aes(group = Year), colour = "black") +
+  coord_cartesian(ylim= c(-0.02,1.02), xlim = c(0,max(df$fT)+max(df$fT)*0.01), expand = FALSE) +
+  theme(axis.line.x = element_line(colour = 'black', linetype='solid'),
+        axis.line.y = element_line(colour = 'black', linetype='solid'),
+        plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 8)) +
+  scale_colour_gradientn(colours = rainbow(3), name = "Year") +
+  guides(alpha = "none") +
+  annotate("text", x = 15, y = 0.9, label = paste0("SA = ", round(SA,2)), size = 3) + 
+  annotate("label", x = 58, y = 0.1, label = "B", size = 3) + 
+  annotate("rect", xmin = 0, ymin = 0, ymax = 0, xmax = max(df$fT), colour = "black") +
+  annotate("rect", xmin = max(df$fT), ymin = 0, ymax = 1, xmax = max(df$fT), colour = "black") +
+  annotate("segment", x = 0, y = 0, yend = 1, xend = max(df$fT), colour = "black", linetype = 2, size = 0.3) +
+  theme(
+    panel.grid.major.y = element_line(colour = "grey90"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    panel.background   = element_blank(),
+    #panel.border       = element_rect(colour = "black", fill = NA),
+    strip.background   = element_rect(colour = "black")
+  ) +
+  labs(x = "T", y = "Q(T)/Q")
+
+sa_plot
+
+ggsave(filename = paste0(getwd(), "/Output/Plots/sa_curve.png"), sa_plot, width = 3.5, height = 3)
+
+joint_plot <- cowplot::plot_grid(lorplot, sa_plot, labels = c("a.", "b."), label_size = 10)
+ggsave(filename = paste0(getwd(), "/Output/Plots/lorenz-sa-curves.png"), joint_plot, width = 7, height = 3)
