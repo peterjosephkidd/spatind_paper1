@@ -447,7 +447,7 @@ df_to_latex(auc_catcount,
 
 # _________________________________________________________________________ ####
 
-# 2. Plots ####
+# 3. Plots ####
 ## AUC Histogram ###############################################################
 # Plot histogram of AUC bins for L50 Mean test
 ind_stats <- bindata %>%
