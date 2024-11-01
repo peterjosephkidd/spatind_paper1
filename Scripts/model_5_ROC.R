@@ -20,6 +20,8 @@ load(paste0(getwd(), "/Output/Data/SpatInds/spatinds_4.rds")) # Spatial Indicato
 load(paste0(getwd(), "/Data/Generated/DR_Stocks/StockNames/stk_names_3a.rds")) # stk_names from data_3a_Mature.R
 source(paste0(getwd(), "/Functions/ROC_funs.R")) # ROC Functions
 
+suppressWarnings(dir.create(paste0(getwd(), "/Output/Data/ROC"), recursive = T))
+
 # Check we are not missing any stocks
 identical(stk_names, unique(spatinds$StockKeyLabel))
 all(stk_names %in% sa_data$StockKeyLabel)
@@ -122,7 +124,6 @@ rocAll_long <- rocAll_long %>%
 any(is.na(rocAll_long$AUC))
 
 # Save
-suppressWarnings(dir.create(paste0(getwd(), "/Output/Data/ROC"), recursive = T))
 save(rocAll_long, file = paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
 
 ################################################################################
@@ -180,6 +181,7 @@ save(srvys_rem, file = paste0(getwd(), "/Output/Data/ROC/rocRem_long_surveys.rds
 
 # Quick plot ###################################################################
 #load(paste0(getwd(), "/Output/Data/ROC/rocRem_long.rds"))
+# Random stock
 stk <- sample(stk_names_rem, 1) # or specify
 plot_df <- filter(rocRem_long, 
                   StockKeyLabel == stk, 
@@ -205,13 +207,6 @@ ggplot(data = plot_df) +
 metadata <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 all(rocRem_long$StockKeyLabel %in% metadata$StockKeyLabel)
 rocRem_long_meta <- left_join(rocRem_long, metadata[c("StockKeyLabel", "SpeciesCommonName", "SpeciesScientificName", "ExpertGroup", "TrophicGuild", "FisheriesGuild", "SizeGuild")], by = "StockKeyLabel")
-
-# Indicator order
-indorder <- c("CoG (x)", "CoG (y)",      # Location
-  "Inertia", "EOO", "ELA",                # Dispersion
-  "POPR", "POPH",                         # Occupancy
-  "Gini Index", "D95", "SA",              # Aggregation 
-  "EA", "SPI")
 
 # Add growth rate k
 growth <- c()
@@ -271,18 +266,13 @@ auc_summary <-  rocRem_long_meta %>%
   select(StockKeyLabel, SurveyNameIndex, SpeciesCommonName, SpeciesScientificName,
          Quarter, ind_category, Indicator, 
          L50lvl,  AUC, GrowthRateK, FisheriesGuild,  Year) %>%
-  mutate(Years = paste0(min(Year[Year != min(Year)]), "-", max(Year)),
-         YearLength = max(Year) - min(Year[Year != min(Year)])) %>%
+  mutate(Years = paste0(min(Year[Year != min(Year)]), "-", max(Year))) %>%
   ungroup() %>%
   select(-Year) %>%
   distinct() %>%
   group_by(StockKeyLabel, SurveyNameIndex, Quarter, Indicator, L50lvl) %>%
-  #na.omit() %>%
   mutate(xaxis = paste0(StockKeyLabel, ": ", SurveyName, ", Q", Quarter)) %>%
   print(n = 20)
-
-# Add stock status contrast ratio
-auc_summary <- left_join(auc_summary, ROContrast[c(1:3,7)], by = c("StockKeyLabel", "SurveyNameIndex", "Quarter"))
 
 # Save
 save(auc_summary, file = paste0(getwd(), "/Output/Data/ROC/auc_summary.rds"))  
