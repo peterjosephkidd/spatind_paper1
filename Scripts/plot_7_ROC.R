@@ -12,7 +12,6 @@ library(rfishbase)
 library(SPMpriors)
 library(FishLife)
 
-
 rm(list = ls())
 
 load(paste0(getwd(), "/Output/Data/ROC/rocRem_long_meta.rds"))    # ROC data with poor surveys removed & stock info added
@@ -22,12 +21,10 @@ load(paste0(getwd(), "/Output/Data/ROC/auc_summary.rds"))
 metadata <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 source(paste0(getwd(), "/Functions/results_funs.R"))              # user functions 
 
-#srv.coverage <- read_xlsx(paste0(load.path, "icesSA_data/icesData-stksurveys-survcoverage.xlsx"))
-#load("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/stockleaves.rds")
-
 # Create directories for saving ouptuts
 suppressWarnings(dir.create(paste0(getwd(), "/Output/Tables/Supplementary"), recursive = T))
 suppressWarnings(dir.create(paste0(getwd(), "/Output/Plots/Supplementary"), recursive = T))
+
 # _________________________________________________________________________ ####
 
 # 1. Preamble ####
@@ -299,7 +296,7 @@ T3_AUC_bins <- left_join(T3_AUC_bins, stats)
 save(T3_AUC_bins, file = paste0(getwd(), "/Output/Tables/T3_AUC_bins.rds"))  
 
 # Remove factoring for Latex
-T3_AUC_bins_tex
+T3_AUC_bins_tex <- T3_AUC_bins
 T3_AUC_bins_tex$`Indicator Category` <- as.character(T3_AUC_bins_tex$`Indicator Category`)
 T3_AUC_bins_tex$Indicator <- as.character(T3_AUC_bins_tex$Indicator)
 
@@ -448,25 +445,10 @@ df_to_latex(auc_catcount,
             file_path =  paste0(getwd(), "/Output/Tables/Supplementary/S4-AUC-catcount.tex")
 )
 
-
-df_to_latex(t.auc_bins, 
-            bold_header = TRUE,
-            font_size = "footnotesize",
-            resize = FALSE,
-            wrap_text  = c(1,2), 
-            text_width = c(5,5),
-            nest_cols = list(c(4:8)),
-            align = c("l","l","l","c","c","c","c","c"),
-            nest_header = "AUC Category",
-            nest_cols_rename = list(c("++", "+", "", "-", "- -")),
-            label = "tab: auc_hist", 
-            caption = "Frequency counts of AUCs within performance categories for each spatial indicator under each L50 sensitivity test. AUC Category refers to the performance category that the mean AUC falls within; ”++” excellent performance (AUC $>=$ 0.8); ”+” good performance (0.8 $>$ AUC $>=$ 0.6); ”-” worse than random (0.4 $>=$ AUC $>$ 0.2); ”– -” worst performance (AUC $<=$ 0.2). No symbol indicates that classification skill was no better than a random classifier (0.4 $<$ AUC $<$ 0.6)." ,
-            file_path = paste0(save.path, "SummaryTables/sup_frequency_auc.tex"))
-
 # _________________________________________________________________________ ####
 
 # 2. Plots ####
-## AUC Histogram ####
+## AUC Histogram ###############################################################
 # Plot histogram of AUC bins for L50 Mean test
 ind_stats <- bindata %>%
   group_by_at(vars(all_of(c("Indicator", "L50lvl")))) %>%
@@ -507,6 +489,12 @@ bin_freq <- table(bindata[["Indicator"]], bindata[["AUC_bin"]], bindata[["L50lvl
     AUC_cat = factor(AUC_cat, levels = c("Worst", "Bad", "Random", "Good", "Best")),
     L50lvl = factor(L50lvl, levels = c("lowerCI", "upperCI", "mean"), labels = c("Lower CI", "Upper CI", "Mean")),
     Freq = as.numeric(Freq))
+
+indorder <- c(
+  "Inertia", "EOO", "ELA",   # Dispersion
+  "POPR", "POPH",            # Occupancy
+  "Gini Index", "D95", "SA", # Aggregation 
+  "EA", "SPI")
 
 ran <- c("Inertia", "EOO", "ELA")                # Dispersion
 occ <- c( "POPR", "POPH")                        # Occupancy
@@ -562,10 +550,8 @@ histplot <-  ggplot() +
 histplot
 ggsave(paste0(getwd(), "/Output/Plots/Supplementary/AUC-histplot-mean.png"), histplot, height = 10, width = 14)
 
-## ROC curves ####
+## ROC curves ##################################################################
 # Plot all ROC curves for each indicator for L50 mean condition
-indorder <- unique(rocRem_long_meta$Indicator)
-
 ROC_plot <-ggplot(data= filter(rocRem_long_meta, 
                                L50lvl == "mean")) +
   geom_path(aes(x = FPR, y = TPR, colour = AUC), alpha = 1) +
@@ -594,13 +580,18 @@ ROC_plot
 
 ggsave(paste0(getwd(), "/Output/Plots/ROC-curves.png"), ROC_plot, height = 10, width = 14)
 
-## Heatmap ####
+## Heatmap #####################################################################
 # This plot provides a visual summary of individuals AUCs, and orders the 
 # x axis by the leaves/groups identified in the regression tree
 
-#load("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/Outputs/ROC/stockleaves.rds")
+load(paste0(getwd(), "/Output/Data/RegTree/stockleaves.rds"))
 
-group_vars <- c("Indicator", "FisheriesGuild", "SpeciesCommonName", "StockKeyLabel", "SurveyName", "Quarter")
+group_vars <- c("Indicator", 
+                "FisheriesGuild", 
+                "SpeciesCommonName", 
+                "StockKeyLabel", 
+                "SurveyName", 
+                "Quarter")
 
 marks <- c("Bins:",
            "++  (AUC >= 0.8)",
@@ -611,11 +602,11 @@ marks <- c("Bins:",
 hmap_data <- bindata %>%
   ungroup() %>%
   filter(L50lvl == "mean") %>%
-  group_by_at(vars(group_vars)) %>%
+  group_by(across(all_of(group_vars))) %>%
   summarise(meanAUC = mean(AUC)) %>%
   arrange(across(all_of(group_vars)), meanAUC)
 
-hmap_data <- left_join(hmap_data, stk_leaves2, by = c("StockKeyLabel", "SurveyName", "Quarter"))
+hmap_data <- left_join(hmap_data, stk_leaves, by = c("StockKeyLabel", "SurveyName", "Quarter"))
 
 hmap_data_long <- hmap_data %>%
   ungroup() %>%
@@ -661,5 +652,52 @@ hmap <- ggplot(hmap_data_long, aes(y = col_index, x = Indicator, fill = Mean)) +
 
 hmap
 
-ggsave(paste0(getwd(), "/Output/Plots/AUC-heatmap-surveylevel-leaf-numbers.png"),
+ggsave(paste0(getwd(), "/Output/Plots/AUC-heatmap.png"),
        hmap, height = 12, width = 8)
+
+## Regression Tree #############################################################
+load(paste0(getwd(), "/Output/Data/RegTree/RegTreePruned.rds"))
+
+regtree <- rpart.plot(pruned_tree, cex = 0.8, type = 1,
+           extra = 101, box.palette= "BuGn")
+
+save(regtree, file = paste0(getwd(), "/Output/Plots/Supplementary/RegTreePruned.png"))
+# Export through IDE if MS does not display figure
+
+## Regression Tree Variable Importance #########################################
+
+vip(pruned_tree, num_features = 40, bar = FALSE, geom = "col")
+
+importance <- data.frame("vip" = pruned_tree$variable.importance)
+importance$feature <- rownames(importance)
+rownames(importance) <- NULL
+head(importance)
+
+importance$feature <- factor(importance$feature, 
+                             levels = arrange(importance, vip)$feature, 
+                             labels = rev(c("Stock ID",
+                                            "Species", 
+                                            "Genus",
+                                            "Survey", 
+                                            "Indicator Category",
+                                            "Survey Quarter")))
+
+vip_plot <- ggplot(data = importance, aes(x = vip, y = feature, fill = type)) +
+  geom_col(fill = "cyan4", colour = "black") + 
+  scale_x_continuous(expand = c(0.01,0)) +
+  xlab("Importance") +
+  ylab("Feature") +
+  theme(axis.text.x = element_text(hjust=1),
+        # Panels
+        panel.grid.major.y = element_line(colour = "grey90"),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor   = element_blank(),
+        panel.background   = element_blank(),
+        panel.border       = element_rect(colour = "black", fill = NA),
+        strip.background   = element_rect(colour = "black"),
+        # Legend
+        legend.position = "right")
+vip_plot
+
+ggsave(paste0(getwd(), "/Output/Plots/Supplementary/variable_importance.png"), 
+       vip_plot, height = 2.5, width = 3.5)
