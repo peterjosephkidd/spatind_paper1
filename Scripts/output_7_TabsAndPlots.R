@@ -316,11 +316,12 @@ df_to_latex(T3_AUC_bins_tex,
             align = c("l","l","l","l","l","l","l", "l"),
             nest_header = "AUC Category",
             nest_cols_rename = list(c("++", "+", "", "-", "- -")),
+            position = "!t",
             label = "tab: auc_hist", 
             caption = "The frequency of AUC outputs within performance categories and median AUC for each spatial indicator. The AUC Category defines bins for categorizing the performance of indicators based on AUC: ”++” excellent performance (AUC $>=$ 0.8); ”+” good performance (0.8 $>$ AUC $>=$ 0.6); ”-” worse than random (0.4 $>=$ AUC $>$ 0.2); ”– -” worst performance (AUC $<=$ 0.2). No symbol indicates that classification skill was no better than a random classifier (0.4 $<$ AUC $<$ 0.6). M = median AUC." ,
             file_path = paste0(getwd(), "/Output/Tables/T3_AUC_bins.tex"))
 
-## S3 Summary Stats ############################################################
+## S3: Summary Stats ############################################################
 # This table calculates some sumamry statistics of the AUC values
 
 # Create columns to put AUC values in bins
@@ -371,7 +372,7 @@ print(S3_stats, n=30)
 save(S3_stats, file = paste0(getwd(), "/Output/Tables/Supplementary/S3_stats.rds"))
 
 # LaTex table
-S3_stats$Indicatorm <- as.character(S3_stats$Indicator)
+S3_stats$Indicator <- as.character(S3_stats$Indicator)
 S3_stats$`L50 Test` <- as.character(S3_stats$`L50 Test`)
 S3_stats$`Indicator Category` <- as.character(S3_stats$`Indicator Category`)
 
@@ -385,7 +386,7 @@ df_to_latex(S3_stats,
             caption = "Summary statistics of AUC outputs for each spatial indicator under each L50 sensitivity test. n = the number of contributing AUC values to the mean AUC; SS = sum of squares; SD = standard deviation; SE = standard error; CI = confidence interval. AUC Category refers to the performance category that the mean AUC falls within; ”++” excellent performance (AUC $>=$ 0.8); ”+” good performance (0.8 $>$ AUC $>=$ 0.6); ”-” worse than random (0.4 $>=$ AUC $>$ 0.2); ”– -” worst performance (AUC $<=$ 0.2). No symbol indicates that classification skill was no better than a random classifier (0.4 $<$ AUC $<$ 0.6)." ,
             file_path = paste0(getwd(), "/Output/Tables/Supplementary/S3_stats.tex"))
 
-## S4 AUC Category Counts ######################################################
+## S4: AUC Category Counts ######################################################
 # This table counts occurrences in each AUC performance category at the survey level
 
 auc_catcount <- auc_summary %>%
@@ -432,17 +433,66 @@ save(auc_catcount, file = paste0(getwd(), "/Output/Tables/Supplementary/S4-AUC-c
 # LaTex table
 df_to_latex(auc_catcount, 
             bold_header = TRUE,
-            font_size = "footnotesize",
-            resize = TRUE,
-            wrap_text = c(1,2), 
-            text_width = c(12,12),
-            nest_cols = list(c(5:9)),
+            font_size   = "footnotesize",
+            resize      = TRUE,
+            wrap_text   = c(1,2), 
+            text_width  = c(12,12),
+            nest_cols   = list(c(5:9)),
             nest_header = "AUC Category",
             nest_cols_rename = list(c("++", "+", "", "-", "- -")),
             align = c("l","l","l","l", "c","c","c","c","c"),
             label = "tab: auc_catcount", 
             caption = "The counts of indicators within each AUC category for each combination of stock and survey AUC Category refers to the performance category that the mean AUC falls within; ”++” excellent performance (AUC $>=$ 0.8); ”+” good performance (0.8 $>$ AUC $>=$ 0.6); ”-” worse than random (0.4 $>=$ AUC $>$ 0.2); ”– -” worst performance (AUC $<=$ 0.2). No symbol indicates that classification skill was no better than a random classifier (0.4 $<$ AUC $<$ 0.6).",
             file_path =  paste0(getwd(), "/Output/Tables/Supplementary/S4-AUC-catcount.tex")
+)
+
+## T4: Regression Tree Rules #######################################################
+load(paste0(getwd(), "/Output/Data/RegTree/RegRules.rds"))
+rule_tbl_l$SplitCriteria <- gsub(",", ", ", rule_tbl_l$SplitCriteria)
+rule_tbl_l <- rule_tbl_l %>%
+  rename("Branch No." = "SplitNo",
+         "Splitting Feature" = "SplitVar",
+         "Splitting Criteria" = "SplitCriteria") %>%
+  mutate(`Splitting Feature` = ifelse(`Splitting Feature` == "StockKeyLabel", "Stock ID", `Splitting Feature`),
+         `Splitting Feature` = ifelse(`Splitting Feature` == "SurveyName", "Survey", `Splitting Feature`),
+         `Splitting Feature` = ifelse(`Splitting Feature` == "ind_category", "Indicator Category", `Splitting Feature`),
+         `Splitting Feature` = ifelse(`Splitting Feature` == "SpeciesScientificName", "Species", `Splitting Feature`),
+         `Branch No.` = ifelse(as.numeric(`Branch No.`) %in% c(7,8,4,11,12,15,16,14,6), paste0(`Branch No.`, "*"), `Branch No.`))
+
+Path <- c("", # 1
+  "", # 2
+  "1",# 3
+  "1",# 4
+  "2",# 5
+  "2",# 6
+  "1, 3",# 7
+  "1, 3",# 8
+  "2, 5",# 9
+  "2, 5",# 10
+  "2, 5, 9",# 11
+  "2, 5, 9",# 12
+  "2, 5, 10",# 13
+  "2, 5, 10",# 14 
+  "2, 5, 10, 13",# 15
+  "2, 5, 10, 13"# 16
+  )
+
+rule_tbl_l$Path <- Path
+rule_tbl_l <- select(rule_tbl_l, `Branch No.`, `Path`, `Splitting Feature`, `Splitting Criteria`)
+
+df_to_latex(rule_tbl_l,
+            bold_header  = TRUE,
+            font_size    = "footnotesize",
+            resize       = TRUE,
+            wrap_text    = c(1, 4),
+            text_width   = c(3, 25),
+            format_rows  = c(5,6),
+            format_cols  = c(4),
+            format_style = "italics",
+            position     = "!t", 
+            label = "tab: regrules",
+            caption = "The splitting criteria at each split in the regression tree. Row numbers with * are terminal nodes in the regression tree. Path represents the splits that have occurred prior to the current split.",
+            file_path =  paste0(getwd(), "/Output/Tables/T4_RegRules.tex")
 )
 
 # _________________________________________________________________________ ####
@@ -628,6 +678,8 @@ x_order = sort(unique(hmap_data_long$Indicator))
 
 hmap_data_long$col_index <- factor(hmap_data_long$col_index, level = rev(y_order))
 hmap_data_long$Indicator <- factor(hmap_data_long$Indicator, level = indorder)
+levels(hmap_data_long$Indicator)[levels(hmap_data_long$Indicator) == "Gini Index"] <- "Gini"
+
 
 hmap_data_long <- mutate(hmap_data_long, cond = tidyr::replace_na(cond, ""))
 
@@ -663,6 +715,7 @@ regtree <- rpart.plot(pruned_tree, cex = 0.8, type = 1,
 
 save(regtree, file = paste0(getwd(), "/Output/Plots/Supplementary/RegTreePruned.png"))
 # Export through IDE if MS does not display figure
+
 
 ## Regression Tree Variable Importance #########################################
 
