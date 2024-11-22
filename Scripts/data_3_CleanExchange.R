@@ -21,14 +21,13 @@ library(stringr)
 rm(list = ls())
 
 # Set-up ####
-load.path <- paste0(getwd(), "/Data/Initial/")
 save.path <- paste0(getwd(), "/Data/Generated/")
 
-stksurveys <- read_xlsx(paste0(load.path, "DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
-refpts     <- read_xlsx(paste0(load.path, "DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
+stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
+refpts     <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 
-load(paste0(load.path, "/ICES Divs/ices_divs.rds"))
-load(paste0(load.path, "/ICES Rect/ices_rect.rds"))
+load(paste0(getwd(), "/Data/Initial/ICES Divs/ices_divs.rds"))
+load(paste0(getwd(), "/Data/Initial/ICES Rect/ices_rect.rds"))
 
 source(paste0(getwd(),"/Functions/dataprep_funs.R"))
 
@@ -41,8 +40,6 @@ missdivs
 rm(areas, divs, missdivs)
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# load(paste0(save.path, "/stks.rds")) # saved stks from data_2_DownloadDATRAS
-# stks <- "ank.27.78abd"               # method 1, to run for individual stocks
 stks <- "all.stocks"                   # method 2, USE THIS
 
 # Start with clear directory (might be issues with permissions)
@@ -54,7 +51,7 @@ for (i in 1:length(stks)) {
   message(stk)
   
   if(stk == "all.stocks") {
-    srvy.list <- unique(str_split_i(list.files(paste0(load.path, "DR_Stocks/SurveyData/", stk)), pattern = ".Yr", i=1))
+    srvy.list <- unique(str_split_i(list.files(paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/", stk)), pattern = ".Yr", i=1))
   } else {
     srvys <- stksurveys %>%
       filter(StockKeyLabel == stk) %>%
@@ -63,7 +60,7 @@ for (i in 1:length(stks)) {
   }
   
   # Create directory to save cleaned survey data
-  suppressWarnings(dir.create(paste0(save.path, "DR_Stocks/SurveyData/Cleaned/", stk), recursive = T))
+  suppressWarnings(dir.create(paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Cleaned/", stk), recursive = T))
   
   for (srvy in 1:length(srvy.list)) {
     
@@ -71,7 +68,7 @@ for (i in 1:length(stks)) {
     message(srv)
     
     # Load survey data 
-    files <- list.files(paste0(load.path, "DR_Stocks/SurveyData/", stk), pattern = paste0("^", srv, "\\.Yr", "*"), full.names = TRUE)
+    files <- list.files(paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/", stk), pattern = paste0("^", srv, "\\.Yr", "*"), full.names = TRUE)
 
     load(files[str_detect(files, "\\.HH--")])
     load(files[str_detect(files, "\\.HL--")])
@@ -120,10 +117,10 @@ for (i in 1:length(stks)) {
     
     #any(hlhh$`SumHlNoAtLngt - TotalNo` != 0)
     
-    save(hh,   file = paste0(save.path, "DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, hh)))
-    save(hl,   file = paste0(save.path, "DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, hl)))
-    save(ca,   file = paste0(save.path, "DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, ca)))
-    save(hlhh, file = paste0(save.path, "DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, hlhh, r = "HLHH")))
+    save(hh,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, hh)))
+    save(hl,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, hl)))
+    save(ca,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, ca)))
+    save(hlhh, file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Cleaned/", stk, "/", namefile(stk, hlhh, r = "HLHH")))
   
   }
 }
