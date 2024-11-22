@@ -3,6 +3,19 @@
 #>                        2. Download DATRAS Survey data
 #>                         
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#> This script downloads all the survey data used for the stocks selected in their
+#> assessment that is available on DATRAS. 
+#> 
+#> These survey files are already provided in the folder 
+#> /Data/Initial/DR_Stocks/SurveyData/
+#> 
+#> And there is no need to run this script except to see how data was downloaded.
+#> The script takes a while to download data. 
+#> Re-downloading data may also give different results later on due to 
+#> retrospecitve corrections to the data made by ICES
+#> 
+#> To reproduce the results of the paper, DO NOT overwrite existing survey data 
+#> by running this script and saving the downloaded survey data. 
 
 library(writexl)
 library(readxl)
@@ -12,11 +25,14 @@ library(dplyr)
 
 rm(list = ls())
 
-load.path <- "~/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/icesSA_data/"
 save.path <- "~/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/SurveyData/"
+
+paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/")
+paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/")
+
 source("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Functions/dataprep_funs.R")
 
-stksurveys <- read_xlsx(paste0(load.path, "icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
+stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
 
 # Stock with enough info to run code
 # AVailable surveys in DATARS:
@@ -31,65 +47,65 @@ stksurveys_full <- stksurveys %>%
   print(n = nrow(.))
 
 length(unique(stksurveys_full$StockKeyLabel))
-save(stksurveys_full, file = paste0(save.path, "icesData-stksurveys_full.rds"))
 
 # Method 1: Surveys within each stock >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # This method is inefficient when downloading data for many stocks. 
 # Some surveys will be downloaded numerous times (e.g. NS-IBTS, EVHOE)
-# See method 2
+# 
+# IGNORE THIS CHUNK --> RUN METHOD 2
 
-stks <- unique(stksurveys_full$StockKeyLabel)
-save(stks, file = paste0(save.path, "/stks.rds")) # save stks for later scripts
+#stks <- unique(stksurveys_full$StockKeyLabel)
 # stks <- "ank.27.78abd"
   
-for (i in 1:length(stks)) {
-  stk <- stks[i]
+#for (i in 1:length(stks)) {
+#  stk <- stks[i]
 
-  srvys <- stksurveys %>%
-    filter(StockKeyLabel == stk) %>%
-    select(SurveyAcronymn, SurveyRefNo, SurveyIndex, YearStart, YearEnd, Quarter)
+#  srvys <- stksurveys %>%
+#    filter(StockKeyLabel == stk) %>%
+#    select(SurveyAcronymn, SurveyRefNo, SurveyIndex, YearStart, YearEnd, Quarter)
   
-  srvy.list <- unique(srvys$SurveyAcronymn)
+#  srvy.list <- unique(srvys$SurveyAcronymn)
   
-  suppressWarnings(dir.create(paste0(save.path, stk, "/raw"), recursive = T))
+#  suppressWarnings(dir.create(paste0(save.path, stk, "/raw"), recursive = T))
   
-  for (j in 1:length(srvy.list)) {
+#  for (j in 1:length(srvy.list)) {
     
-    srvy <- srvy.list[j] 
+#    srvy <- srvy.list[j] 
 
-    srvys.filt <- srvys[srvys$SurveyAcronymn == srvy,]
+#    srvys.filt <- srvys[srvys$SurveyAcronymn == srvy,]
 
-    qrs <- sort(unique(srvys.filt$Quarter))
-    yrs <- min(srvys.filt$YearStart, na.rm = T):max(srvys.filt$YearEnd, na.rm = T)
+#    qrs <- sort(unique(srvys.filt$Quarter))
+#    yrs <- min(srvys.filt$YearStart, na.rm = T):max(srvys.filt$YearEnd, na.rm = T)
 
-    hh <- data.frame()
-    hl <- data.frame()
-    ca <- data.frame()
+#    hh <- data.frame()
+#    hl <- data.frame()
+#    ca <- data.frame()
     
-    message(paste0(stk, ": ", srvy, " --- HH"))
-    hh.df <- try(getDATRAS(record = "HH", srvy, years = yrs, quarters = c(qrs)))
-    message(paste0(stk, ": ", srvy, " --- HL"))
-    hl.df <- try(getDATRAS(record = "HL", srvy, years = yrs, quarters = c(qrs)))
-    message(paste0(stk, ": ", srvy, " --- CA"))
-    ca.df <- try(getDATRAS(record = "CA", srvy, years = yrs, quarters = c(qrs)))
+#    message(paste0(stk, ": ", srvy, " --- HH"))
+#    hh.df <- try(getDATRAS(record = "HH", srvy, years = yrs, quarters = c(qrs)))
+#    message(paste0(stk, ": ", srvy, " --- HL"))
+#    hl.df <- try(getDATRAS(record = "HL", srvy, years = yrs, quarters = c(qrs)))
+#    message(paste0(stk, ": ", srvy, " --- CA"))
+#    ca.df <- try(getDATRAS(record = "CA", srvy, years = yrs, quarters = c(qrs)))
     
-    hh <- rbind(hh, hh.df)
-    hl <- rbind(hl, hl.df)
-    ca <- rbind(ca, ca.df)
+#    hh <- rbind(hh, hh.df)
+#    hl <- rbind(hl, hl.df)
+#    ca <- rbind(ca, ca.df)
     
-    table(hh$Year, hh$Quarter)
-    table(hl$Year, hl$Quarter)
-    table(ca$Year, ca$Quarter)
+#    table(hh$Year, hh$Quarter)
+#    table(hl$Year, hl$Quarter)
+#    table(ca$Year, ca$Quarter)
       
-    save(hh, file = paste0(save.path, stk, "/raw/", namefile(stk, hh)))
-    save(hl, file = paste0(save.path, stk, "/raw/", namefile(stk, hl)))
-    save(ca, file = paste0(save.path, stk, "/raw/", namefile(stk, ca)))
-  }
-}
+#    save(hh, file = paste0(save.path, stk, "/raw/", namefile(stk, hh)))
+#    save(hl, file = paste0(save.path, stk, "/raw/", namefile(stk, hl)))
+#    save(ca, file = paste0(save.path, stk, "/raw/", namefile(stk, ca)))
+#  }
+#}
 
 # Method 2: All Surveys >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # This method downloads each survey once only, 
 # instead of repeating downloads of the same surveys
+# USE THIS
 
 allsrvys2 <- stksurveys %>%
   select(SurveyAcronymn, SurveyRefNo, YearStart, YearEnd, Quarter) %>%
@@ -112,11 +128,10 @@ allsrvys <- allsrvys2 %>%
   print(n = nrow(.))
 
 stk <- "all.stocks"
-suppressWarnings(dir.create(paste0(save.path, stk, "/raw"), recursive = T))
 
-surveysummary <- data.frame()
+suppressWarnings(dir.create(paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/all.stocks"), recursive = T))
 
-for(i in 6:nrow(allsrvys)){
+for(i in 1:nrow(allsrvys)){
   
   srv <- allsrvys[i,]$SurveyAcronymn
   yrs <- allsrvys[i,]$minYr:allsrvys[i,]$maxYr
@@ -129,40 +144,8 @@ for(i in 6:nrow(allsrvys)){
   message(paste0(srv, ": ", min(yrs),"-", max(yrs), ", Qrs ", allsrvys[i,]$Quarters, " --- CA"))
   ca <- try(getDATRAS(record = "CA", srv, years = yrs, quarters = c(qrs)))
   
-  save(hh, file = paste0(save.path, stk, "/raw/", namefile(stk, hh)))
-  save(hl, file = paste0(save.path, stk, "/raw/", namefile(stk, hl)))
-  save(ca, file = paste0(save.path, stk, "/raw/", namefile(stk, ca)))
-  
-  
-  for (j in 1:length(qrs)) {
-    
-    rhh <- unique(hh$RecordType)
-    qhh <- unique(hh$Quarter)[j]
-    yrminhh <- min(yrs)
-    yrmaxhh <- max(yrs)
-    yrmisshh <- paste0(yrs[!yrs %in% unique(hh[hh$Quarter == j,]$Year)], collapse = " ")
-    if(yrmisshh == paste(yrs, collapse = " ")){yrmisshh = "All"}
-    hhsum <- cbind("Survey" = srv, "RecordType" = rhh, "QuarterReq" = qhh, "YearMinReq" = yrminhh, "YearMaxReq" = yrmaxhh, "YearMiss" = yrmisshh)
-    
-    rhl <- unique(hl$RecordType)
-    qhl <- unique(hl$Quarter)[j]
-    yrminhl <- min(yrs)
-    yrmaxhl <- max(yrs)
-    yrmisshl <- paste0(yrs[!yrs %in% unique(hl[hl$Quarter == j,]$Year)], collapse = " ")
-    if(yrmisshl == paste(yrs, collapse = " ")){yrmisshl = "All"}
-    hlsum <- cbind("Survey" = srv, "RecordType" = rhl, "QuarterReq" = qhl, "YearMinReq" = yrminhl, "YearMaxReq" = yrmaxhl, "YearMiss" = yrmisshl)
-    
-    rca <- unique(ca$RecordType)
-    qca <- unique(ca$Quarter)[j]
-    yrminca <- min(yrs)
-    yrmaxca <- max(yrs)
-    yrmissca <- paste0(yrs[!yrs %in% unique(ca[ca$Quarter == j,]$Year)], collapse = " ")
-    if(yrmissca == paste(yrs, collapse = " ")){yrmissca = "All"}
-    casum <- cbind("Survey" = srv, "RecordType" = rca, "QuarterReq" = qca, "YearMinReq" = yrminca, "YearMaxReq" = yrmaxca, "YearMiss" = yrmissca)
-    
-    surveysummary <- rbind(surveysummary, hhsum, hlsum, casum)
-  }
+  save(hh, file = paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/all.stocks/", namefile(stk, hh)))
+  save(hl, file = paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/all.stocks/", namefile(stk, hl)))
+  save(ca, file = paste0(getwd(), "/Data/Initial/DR_Stocks/SurveyData/all.stocks/", namefile(stk, ca)))
 }
 
-surveysummary # ignore "All" - code not working
-save(surveysummary, file = paste0(save.path, "/SurveyDownloadSummary.rds"))
