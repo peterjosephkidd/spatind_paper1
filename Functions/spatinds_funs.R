@@ -1573,7 +1573,7 @@ mapdis <- function(hlhh, yrs, qrs, species_aphia, stk_divs, ices_rect, matures =
     if(ELA == T){
       cord <- as.data.frame(coordinates)
       # Add colours into df for scale_fill_identity
-      cord <- mutate(cord, `Range Indicator` = "black")
+      cord <- mutate(cord, `Dispersion Indicator` = "black")
     }
     
     
@@ -1631,7 +1631,7 @@ mapdis <- function(hlhh, yrs, qrs, species_aphia, stk_divs, ices_rect, matures =
       ell <- as.data.frame(car::dataEllipse(c(xa,xb,xc,xd),c(ya,yb,yc,yd), 
                                             levels = 0.25, draw = F, add = F, robust = T))
       # Add colours into df for scale_fill_identity
-      ell <- mutate(ell,`Range Indicator` = "blue")
+      ell <- mutate(ell,`Dispersion Indicator` = "blue")
       
       # Inertia cross
       xcros <- rbind(xa,xb,xc,xd)
@@ -1657,7 +1657,7 @@ mapdis <- function(hlhh, yrs, qrs, species_aphia, stk_divs, ices_rect, matures =
       )
       
       # Add colours into df for scale_fill_identity
-      convex_hull_sf <- mutate(convex_hull_sf, `Range Indicator` = "orange")
+      convex_hull_sf <- mutate(convex_hull_sf, `Dispersion Indicator` = "orange")
     }
     
     #>>>>>>>> Plot >>>>>>>>>#
@@ -1722,17 +1722,17 @@ mapdis <- function(hlhh, yrs, qrs, species_aphia, stk_divs, ices_rect, matures =
       
       #>>>>>>>>>> Convex Hull Polygon (EOO) >>>>>>>>>#
       {if(EOO == T)list(
-        geom_sf(data = convex_hull_sf, aes(colour = `Range Indicator`), fill = "orange", alpha = 0.1, show.legend = T)
+        geom_sf(data = convex_hull_sf, aes(colour = `Dispersion Indicator`), fill = "orange", alpha = 0.1, show.legend = T)
       )} +
       
       #>>>>>>>>>> 95% CI Ellipse (ELA) >>>>>>>>>#
       {if(ELA == T)list(
-        stat_ellipse(data = cord, aes(x = x, y = y, colour = `Range Indicator`), type = "t")
+        stat_ellipse(data = cord, aes(x = x, y = y, colour = `Dispersion Indicator`), type = "t")
       )} + 
       
       #>>>>>>>>>> Inertia >>>>>>>>>>#
       {if(inertia == T)list(
-        stat_ellipse(data = ell, aes(x = x, y = y, colour = `Range Indicator`), level = 0.945, type = "norm"),
+        stat_ellipse(data = ell, aes(x = x, y = y, colour = `Dispersion Indicator`), level = 0.945, type = "norm"),
         geom_line(data = inertcross[c(1:2),], aes(x = V1, y = V2), colour = "blue"),
         geom_line(data = inertcross[c(3:4),], aes(x = V1, y = V2), colour = "blue")
       )} +
