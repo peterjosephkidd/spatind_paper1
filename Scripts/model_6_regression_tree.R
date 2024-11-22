@@ -19,13 +19,13 @@ library(readxl)
 library(rpart)
 library(vip)
 library(rpart.plot)
+library(rattle)
 
 
 library(randomForest)
 library(party)
 library(partykit)
 library(plotrix)
-library(rattle)
 
 rm(list = ls())
 
@@ -180,6 +180,7 @@ save(feature_sel2, file = paste0(getwd(), "/Output/Data/RFE/feature_sel_meanL50.
 load(paste0(getwd(), "/Output/Data/RFE/feature_sel_meanL50.rds"))
 
 feature_sel2
+feature_sel2$call
 predictors(feature_sel2)
 plot(feature_sel2, type=c("g", "o"))
 
@@ -197,21 +198,91 @@ vip(reg_tree, num_features = 40, bar = FALSE, geom = "col")
 rpart.plot(reg_tree, cex = 0.5, type = 5)
 
 save(reg_tree, file = paste0(getwd(), "/Output/Data/RegTree/RegTree.rds"))
+load(paste0(getwd(), "/Output/Data/RegTree/RegTree.rds"))
 
 ## Pruning #####################################################################
 # Prune the regression tree
-rpartCtrl <- rpart.control(cp = 0.018)
+best <- reg_tree$cptable[which(reg_tree$cptable[,4] == min(reg_tree$cptable[,4])),]
+ose  <- reg_tree$cptable[reg_tree$cptable[,4] <= best[4]+best[5],]
+cp   <- ose[1]
+
+rpartCtrl <- rpart.control(cp = cp)
 
 pruned_tree <- rpart(formula, 
                      data = data,
                      control = rpartCtrl)
-printcp(pruned_tree)
+
+base_tree <- rpart(formula, 
+                  data = data,
+                  control = rpart.control(cp = reg_tree$cptable[1]))
+
+# Model performance
+printcp(pruned_tree) # record root node error 
+root_node_error <- 23.52/520
+
+# Model performance on absolute scale 
+cbind(pruned_tree$cptable[,1:2],pruned_tree$cptable[,3:5]*root_node_error)
+
 plotcp(pruned_tree)
+
+# Variable Importance
 vip(pruned_tree, num_features = 40, bar = FALSE, geom = "col")
 
+# Decision Tree Diagram
 rpart.plot(pruned_tree, cex = 0.8, type = 1,
            extra = 101, box.palette= "BuGn")
 
+# Detailed node information
+as.data.frame(pruned_tree$frame)
+
+# Rules
+rules <- path.rpart(pruned_tree, node = 1:pruned_tree$frame$n)
+
+rule_tbl <- data.frame()
+
+for (Split in 1:length(rules) ){
+  spliti <- rules[Split]
+  for (Criteria in length(spliti[[1]])) {
+    critj <- spliti[[1]][Criteria]
+    SplitNo <- Split-1
+    CriteriaNo <- Criteria-1
+    res <- cbind(SplitNo,CriteriaNo,critj)
+    rule_tbl <- rbind(rule_tbl, res)
+  }
+}
+
+rule_tbl$StockKeyLabel <- ifelse(
+  grepl("StockKeyLabel=", rule_tbl$critj),
+  sub("StockKeyLabel=", "", rule_tbl$critj),
+  NA
+)
+rule_tbl$SurveyName <- ifelse(
+  grepl("SurveyName=", rule_tbl$critj),
+  sub("SurveyName=", "", rule_tbl$critj),
+  NA
+)
+rule_tbl$ind_category <- ifelse(
+  grepl("ind_category=", rule_tbl$critj),
+  sub("ind_category=", "", rule_tbl$critj),
+  NA
+)
+rule_tbl$SpeciesScientificName <- ifelse(
+  grepl("SpeciesScientificName=", rule_tbl$critj),
+  sub("SpeciesScientificName=", "", rule_tbl$critj),
+  NA
+)
+
+rule_tbl
+
+rule_tbl_l <- tidyr::pivot_longer(rule_tbl, c(4:7), names_to = "SplitVar", values_to = "SplitCriteria")
+rule_tbl_l <- select(rule_tbl_l, -c(critj, CriteriaNo)) %>% na.omit()
+
+save(rule_tbl_l, file = paste0(getwd(), "/Output/Data/RegTree/RegRules.rds"))
+
+asRules(pruned_tree) # note Rule numbers: 5,27,7,53,25,9,24,8,52
+end_nodes <- c(5,27,7,53,25,9,24,8,52)
+
+# Save Tree
 save(pruned_tree, file = paste0(getwd(), "/Output/Data/RegTree/RegTreePruned.rds"))
 
 ## Leaves ######################################################################
@@ -219,6 +290,7 @@ save(pruned_tree, file = paste0(getwd(), "/Output/Data/RegTree/RegTreePruned.rds
 # These are manually taken by looking at the regression tree
 # Starting from right to left
 # These are used to order plots later
+
 preds <- pred_set[pred_set!="L50lvl"]
 
 data <- auc_summary %>%
@@ -233,7 +305,7 @@ l9 <- data %>%
          !SpeciesScientificName %in% c("Gadus morhua", "Squalus acanthias", "Merluccius merluccius", "Scomber scombrus", "Lophius piscatorius", "Pleuronectes platessa", "Solea solea", "Merlangius merlangus")) %>%
          select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 9)
+  mutate(LeafNo = "I")
 
 l8 <- data %>%
   filter(!StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -243,7 +315,7 @@ l8 <- data %>%
          !SurveyName %in% c("EVHOE", "SWC-IBTS", "SP-NORTH", "SNS")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 8)
+  mutate(LeafNo = "H")
 
 l7 <- data %>%
   filter(!StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -254,7 +326,7 @@ l7 <- data %>%
          !StockKeyLabel %in% c("mac.27.nea", "ple.27.420")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 7)
+  mutate(LeafNo = "G")
 
 l6 <- data %>%
   filter(!StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -265,7 +337,7 @@ l6 <- data %>%
          StockKeyLabel %in% c("mac.27.nea", "ple.27.420")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 6)
+  mutate(LeafNo = "F")
 
 l5 <- data %>%
   filter(!StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -275,7 +347,7 @@ l5 <- data %>%
          !StockKeyLabel %in% c("cod.27.22-24", "ple.27.7a", "ple.27.7d", "sol.27.4", "whg.27.6a", "whg.27.7b-ce-k")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 5)
+  mutate(LeafNo = "E")
 
 l4 <- data %>%
   filter(!StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -285,7 +357,7 @@ l4 <- data %>%
          StockKeyLabel %in% c("cod.27.22-24", "ple.27.7a", "ple.27.7d", "sol.27.4", "whg.27.6a", "whg.27.7b-ce-k")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 4)
+  mutate(LeafNo = "D")
 
 l3 <- data %>%
   filter(StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -293,7 +365,7 @@ l3 <- data %>%
          SurveyName != "NS-IBTS") %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 3)
+  mutate(LeafNo = "C")
 
 l2 <- data %>%
   filter(StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -302,7 +374,7 @@ l2 <- data %>%
          !StockKeyLabel %in% c("her.27.3a47d", "ple.27.21-23")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 2)
+  mutate(LeafNo = "B")
   
 l1 <- data %>%
   filter(StockKeyLabel %in% c("had.27.46a20","her.27.3a47d", "hke.27.3a46-8abd", "hom.27.2a4a5b6a7a-ce-k8",
@@ -311,13 +383,13 @@ l1 <- data %>%
          StockKeyLabel %in% c("her.27.3a47d", "ple.27.21-23")) %>%
   select(StockKeyLabel, SpeciesScientificName, SurveyName, Quarter) %>%
   distinct() %>% 
-  mutate(LeafNo = 1)
+  mutate(LeafNo = "A")
 
 stk_leaves <- rbind(l1,l2,l3,l4,l5,l6,l7,l8,l9)
-
+stk_leaves$LeafNo <- factor(stk_leaves$LeafNo, levels = rev(unique(stk_leaves$LeafNo)))
 stk_leaves <- stk_leaves %>%
   group_by(StockKeyLabel, SurveyName, Quarter) %>%
-  arrange(-LeafNo) %>%
+  arrange(LeafNo) %>%
   summarise(LeafNo = paste0(LeafNo, collapse = " & ")) %>%
   arrange(LeafNo) %>%
   print(., n = nrow(.))
