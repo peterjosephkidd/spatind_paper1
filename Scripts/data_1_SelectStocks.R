@@ -4,9 +4,8 @@
 #>                              
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #> This script reproduces the file .../Data/Initial/DR_Stocks/StockInfo/icesData-69stks-AY2022-SA-data.xlsx
-#> Which is already provided in the folder
-#> There is therefore no need to run this script except only to see how
-#> stocks were sleected at the beginning of this project
+#> Which is already provided in the folder so there is no need to run this script except only to see how
+#> stocks were selected at the beginning of this project
 
 library(icesSAG)
 library(icesSD)
@@ -18,6 +17,7 @@ library(ggplot2)
 rm(list = ls())
 
 # 1. Stock Descriptions ####
+# Select data-rich stocks with assessment keys available
 stks22 <- getSD(year = 2022) # N=272
 
 # Data-rich stocks 
@@ -45,6 +45,7 @@ table(stks22.dr$FisheriesGuild)
 table(stks22.dr$ExpertGroup)
 
 # 2. Reference Points ####
+# Select stocks with MSY Btrigger estimated
 refpts <- icesSAG::getFishStockReferencePoints(unique(stks22.dr$AssessmentKey))
 refpts <- do.call(bind_rows, refpts) # bind_rows better here due to different dimensions among lists
 head(refpts)
@@ -52,7 +53,7 @@ head(refpts)
 # Stocks with MSY Btrigger estimated 
 refpts.msyb <- filter(refpts, !is.na(MSYBtrigger)) # N=69
 
-# Link to Advice
+# Add URL to ICES Advice Sheets if needed
 add_link = F
 if(isTRUE(add_link)){
   advice <- icesSAG::getListStocks(2022) %>% 
@@ -67,6 +68,7 @@ if(isTRUE(add_link)){
 head(refpts.msyb)
 
 # 3. Stock Assessment Estimates ####
+# Get information on SSB from stock assessments and merge with stock info
 sumtbl <- getSummaryTable(unique(refpts.msyb$AssessmentKey))
 sumtbl <- do.call(rbind.data.frame, sumtbl) # bind_rows doesn't work here due to columns not being of consistent class
 sumtbl <- rename(sumtbl, StockKeyLabel = fishstock)
@@ -93,7 +95,7 @@ length(unique(finaldata$StockKeyLabel))
 
 # Check for NAs
 any(is.na(finaldata[, c("FisheriesGuild", "TrophicGuild", "SizeGuild")]))
-unique(finaldata[is.na(finaldata[, c("FisheriesGuild", "TrophicGuild", "SizeGuild")]),]$StockKeyLabel) # Atlantic Wolffish (AK 3208) # check https://sid.ices.dk/ViewStock.aspx?key=3208
+unique(finaldata[which(is.na(finaldata[, c("FisheriesGuild", "TrophicGuild", "SizeGuild")])),]$StockKeyLabel) # Atlantic Wolffish (AK 3208) # check https://sid.ices.dk/ViewStock.aspx?key=3208
 
 # Save data ###
 write_xlsx(finaldata, paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-", 
