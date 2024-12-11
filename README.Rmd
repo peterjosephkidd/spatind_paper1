@@ -1,5 +1,6 @@
 ---
 output: github_document
+bibliography: grateful-refs.bib
 ---
 
 # README
@@ -17,3 +18,8 @@ output: github_document
   - `output_7_TabsAndPlots.R`: Plot primary and supplementary tables and plots.
   
 Scripts 1 and 2 do not need to be run. They retrieve data rich stock information (e.g. reference points and SSB) and download DATRAS survey data which could change if ICES make retrospective corrections to data. Outputs of these scripts have been provided in `Data/Initial/` so that results can be accurately replicated.
+
+## Packages
+
+`PckgBib.bib`: BibTex citations of package used
+`PckgBibReport.html`: html file of packages used
