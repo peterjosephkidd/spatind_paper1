@@ -1,7 +1,4 @@
 ---
-title: "README"
-author: "Peter Kidd"
-date: "`r Sys.Date()`"
 output: github_document
 ---
 

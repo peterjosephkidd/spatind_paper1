@@ -1,7 +1,3 @@
-README
-================
-Peter Kidd
-2024-12-11
 
 # README
 
