@@ -39,19 +39,10 @@ library(fishtree)
 
 rm(list = ls())
 
-#save.path <- "~/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/SurveyData/"
-
-load.path <- paste0(getwd(), "/Data/Initial/")
-save.path <- paste0(getwd(), "/Data/Generated/")
-
 stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
 refpts     <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 
 source(paste0(getwd(),"/Functions/dataprep_funs.R"))
-
-# Taxonomic database
-#taxizedb::db_download_ncbi(verbose = TRUE, overwrite = FALSE)
-#taxizedb::db_path("ncbi")
 
 # Get life history information from FishBase
 Lmat <- data.frame()
@@ -77,7 +68,6 @@ for (i in 1:nrow(refpts)) {
                Species = species)
     }
   
-  # Use tryCatch to handle errors
   tryCatch ({
     message(paste0(taxon_data$Genus, " ", taxon_data$Species))
     par <- flmvn_traits(genus, species, Plot = FALSE)
@@ -102,16 +92,18 @@ all(Lmat$SpeciesScientificName == paste0(Lmat$Genus, " ", Lmat$Species))
 # Did we get the expected number of outputs? No
 nrow(Lmat)
 nrow(refpts)
+
 # Which species did we not retrieve information for? Nephrops and megrim
 refpts[!refpts$StockKeyLabel %in% Lmat$StockKeyLabel,]
-# One nephrops (which we do not assess and ignore) and one megrim stock
 
+# One nephrops (which we do not assess and ignore) and one megrim stock
 # lez.27.4a6a consists of two species 
 # Lepidorhombus whiffiagonis and L. boscii. 
 # We deal with this later after we identify matures in survey data for the rest of the stocks
 
 ################################################################################
-# Identify Matures in Survey Data >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>#
+
+# Identify Matures in Survey Data 
 #
 # This code takes a long while and is highly inefficient 
 # For each survey used for each stock, 3 copies of the survey data are created. One for each L50 condition. 
@@ -119,12 +111,11 @@ refpts[!refpts$StockKeyLabel %in% Lmat$StockKeyLabel,]
 #
 # Stocks with surveys that are not in survey_names (i.e. DATRAS) will not have a local file created
 # and are not assessed any further. This reduces total number of stocks from 69 to 39
-################################################################################
 
 stks <- Lmat$StockKeyLabel
 #stks <- "ank.27.78abd"
 
-method2 <- TRUE # method used in data_2_DownlaodDATRAS.R and data_3_CleanExchange.R
+method2 <- TRUE
 L50levels <- data.frame("mean" = 7, "lowerCI" = 9, "upperCI" = 10) # index locations to get L50 values out of Lmat
 survey_names <- list.files(paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Cleaned/all.stocks/"))
 survey_names <- unique(stringr::str_remove(survey_names, "\\.Yr.*"))
@@ -147,6 +138,7 @@ for (i in 1:length(stks)) {
     
 
   for (j in 1:length(srvys_avail)) {
+    
     for (lvl in 1:length(L50levels)) {
       
       tryCatch({
@@ -184,12 +176,13 @@ for (i in 1:length(stks)) {
 }
 
 ################################################################################
+
 #> lez.27.4a6a - manual intervention -------------------------------------------
 #> 
 #> we identify mature megrim based upon the L50 values for both L.whif and
 #> L.bosci species of megrim. The datasets for each species 
 #> (e.g. ca.bosci and ca.whif) are combined into a single dataset.
-################################################################################
+
 error_messages <- list()
 species_aphia.whif <-  findAphia("Lepidorhombus whiffiagonis", latin = TRUE)
 species_aphia.bosc <-  findAphia("Lepidorhombus boscii", latin = TRUE)

@@ -108,7 +108,7 @@ rocAll_long[is.na(rocAll_long$AUC),]
 #> negative and TPR, TSS, AUC, cannot be computed.
 #> 
 #> In other rows we see that FP, TP, TN, and FN are filled with NA. This is because
-#> the indicator is not calculated for these year
+#> the indicator is not calculated for these years
 #> 
 #> We will get rid of rows where the FPR or TPR = NaN, and rows where the 
 #> indicator value = NA
@@ -127,6 +127,7 @@ any(is.na(rocAll_long$AUC))
 save(rocAll_long, file = paste0(getwd(), "/Output/Data/ROC/ROCdata.rds"))
 
 ################################################################################
+
 #> Not all surveys are informative. A long timeseries with contrast in stock
 #> status is ideal for telling us whether an indicator can reliably classify 
 #> stock status. We filter to surveys with at least 15 years of survey data
@@ -154,7 +155,8 @@ hist(ROContrast$Ratio.P2G[ROContrast$Ratio.P2G < 15], breaks = 100)
 ### Less than 15 years in time series
 ### More than 4:1 ratio of good:bad (or vice versa)
 removals <- ROContrast %>%
-  mutate(contrast = if_else(Ratio.P2G == 0 | is.infinite(Ratio.P2G ), 9, if_else(Ratio.P2G < 0.25 | Ratio.P2G > 4, 4 , 0)),
+  mutate(contrast = if_else(Ratio.P2G == 0 | is.infinite(Ratio.P2G ), 9, 
+                            if_else(Ratio.P2G < 0.25 | Ratio.P2G > 4, 4 , 0)),
          years    = if_else(N.years < 15, 1, 0),
          rem      = contrast + years) %>%
   arrange(-rem, N.years, Ratio.P2G) %>%

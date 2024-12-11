@@ -21,8 +21,6 @@ library(stringr)
 rm(list = ls())
 
 # Set-up ####
-save.path <- paste0(getwd(), "/Data/Generated/")
-
 stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
 refpts     <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 
@@ -40,7 +38,7 @@ missdivs
 rm(areas, divs, missdivs)
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-stks <- "all.stocks"                   # method 2, USE THIS
+stks <- "all.stocks"                  
 
 # Start with clear directory (might be issues with permissions)
 #do.call(file.remove, list(list.files(paste0(save.path, "DR_Stocks/SurveyData/Cleaned/"), full.names = TRUE)))

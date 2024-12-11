@@ -5,7 +5,8 @@
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #> This script reproduces the file .../Data/Initial/DR_Stocks/StockInfo/icesData-69stks-AY2022-SA-data.xlsx
 #> Which is already provided in the folder so there is no need to run this script except only to see how
-#> stocks were selected at the beginning of this project
+#> stocks were selected at the beginning of this project. Results may change
+#> if ICES make retrospective changes and stock info is redownloaded.
 
 library(icesSAG)
 library(icesSD)

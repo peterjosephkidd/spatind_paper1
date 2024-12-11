@@ -4,18 +4,21 @@
 #>                         
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #> This script downloads all the survey data used for the stocks selected in their
-#> assessment that is available on DATRAS. 
+#> assessment that is available on DATRAS. The survey data used in assessment was 
+#> identified from ICES advice sheets, WG reports, and stock annexes were for the
+#> stocks identified in data_1_SelectStocks.R and is available in 
+#> /Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx. 
+#> Stocks that used DATRAS survey data were retained in the analysis. 
 #> 
-#> These survey files are already provided in the folder 
+#> These survey data files are already provided in the folder 
 #> /Data/Initial/DR_Stocks/SurveyData/
 #> 
-#> And there is no need to run this script except to see how data was downloaded.
-#> The script takes a while to download data. 
-#> Re-downloading data may also give different results later on due to 
-#> retrospecitve corrections to the data made by ICES
+#> There is no need to run this script except to see how data was downloaded.
+#> The script takes a long time to download data. Re-downloading data may produce
+#> differences in results due to retrospective corrections to the data made by ICES
 #> 
-#> To reproduce the results of the paper, DO NOT overwrite existing survey data 
-#> by running this script and saving the downloaded survey data. 
+#> To reproduce the results of the paper, DO NOT run this script. It will overwrite 
+#> existing survey data in the repo. 
 
 library(writexl)
 library(readxl)
@@ -35,7 +38,7 @@ source("C:/Users/pk02/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/Sp
 stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
 
 # Stock with enough info to run code
-# AVailable surveys in DATARS:
+# Available surveys in DATARS:
 datrassrvys <- c("BITS", "BTS", "BTS-GSA17", "BTS-VIII", "Can-Mar", "DWS", "DYFS", "EVHOE", "FR-CGFS", "FR-WCGFS",
 "IE-IAMS", "IE-IGFS", "IS-IDPS", "NIGFS", "NL-BSAS", "NS-IBTS", "NS-IBTS_UNIFtest", "NS-IDPS", "NSSS", "PT-IBTS",
 "ROCKALL", "SCOROC", "SCOWCGFS", "SE-SOUND", "SNS", "SP-ARSA", "SP-NORTH", "SP-PORC", "SWC-IBTS")
@@ -48,64 +51,7 @@ stksurveys_full <- stksurveys %>%
 
 length(unique(stksurveys_full$StockKeyLabel))
 
-# Method 1: Surveys within each stock >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# This method is inefficient when downloading data for many stocks. 
-# Some surveys will be downloaded numerous times (e.g. NS-IBTS, EVHOE)
-# 
-# IGNORE THIS CHUNK --> RUN METHOD 2
-
-#stks <- unique(stksurveys_full$StockKeyLabel)
-# stks <- "ank.27.78abd"
-  
-#for (i in 1:length(stks)) {
-#  stk <- stks[i]
-
-#  srvys <- stksurveys %>%
-#    filter(StockKeyLabel == stk) %>%
-#    select(SurveyAcronymn, SurveyRefNo, SurveyIndex, YearStart, YearEnd, Quarter)
-  
-#  srvy.list <- unique(srvys$SurveyAcronymn)
-  
-#  suppressWarnings(dir.create(paste0(save.path, stk, "/raw"), recursive = T))
-  
-#  for (j in 1:length(srvy.list)) {
-    
-#    srvy <- srvy.list[j] 
-
-#    srvys.filt <- srvys[srvys$SurveyAcronymn == srvy,]
-
-#    qrs <- sort(unique(srvys.filt$Quarter))
-#    yrs <- min(srvys.filt$YearStart, na.rm = T):max(srvys.filt$YearEnd, na.rm = T)
-
-#    hh <- data.frame()
-#    hl <- data.frame()
-#    ca <- data.frame()
-    
-#    message(paste0(stk, ": ", srvy, " --- HH"))
-#    hh.df <- try(getDATRAS(record = "HH", srvy, years = yrs, quarters = c(qrs)))
-#    message(paste0(stk, ": ", srvy, " --- HL"))
-#    hl.df <- try(getDATRAS(record = "HL", srvy, years = yrs, quarters = c(qrs)))
-#    message(paste0(stk, ": ", srvy, " --- CA"))
-#    ca.df <- try(getDATRAS(record = "CA", srvy, years = yrs, quarters = c(qrs)))
-    
-#    hh <- rbind(hh, hh.df)
-#    hl <- rbind(hl, hl.df)
-#    ca <- rbind(ca, ca.df)
-    
-#    table(hh$Year, hh$Quarter)
-#    table(hl$Year, hl$Quarter)
-#    table(ca$Year, ca$Quarter)
-      
-#    save(hh, file = paste0(save.path, stk, "/raw/", namefile(stk, hh)))
-#    save(hl, file = paste0(save.path, stk, "/raw/", namefile(stk, hl)))
-#    save(ca, file = paste0(save.path, stk, "/raw/", namefile(stk, ca)))
-#  }
-#}
-
-# Method 2: All Surveys >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# This method downloads each survey once only, 
-# instead of repeating downloads of the same surveys
-# USE THIS
+# All Surveys >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 allsrvys2 <- stksurveys %>%
   select(SurveyAcronymn, SurveyRefNo, YearStart, YearEnd, Quarter) %>%

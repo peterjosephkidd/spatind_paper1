@@ -81,7 +81,6 @@ auc_summary <- auc_summary %>%
   mutate(StockNo = order(unique(StockKeyLabel)))
 head(auc_summary)
 
-#___________________________________________________________________________####
 # Predictors ####
 set.seed(2512)
 
@@ -123,6 +122,8 @@ pred_set  <-  gsub(" ", "", c(### Survey Predictors
                "ind_category"))
 
 # Recursive Feature Elimination ################################################
+# Warning: RFE takes long to run 
+
 # Are there differences in AUC between the three L50 conditions?
 preds <- pred_set[pred_set!="L50MeanVal"]
 
@@ -202,6 +203,7 @@ load(paste0(getwd(), "/Output/Data/RegTree/RegTree.rds"))
 
 ## Pruning #####################################################################
 # Prune the regression tree
+# We choose CP based on the one-standard-error rule
 best <- reg_tree$cptable[which(reg_tree$cptable[,4] == min(reg_tree$cptable[,4])),]
 ose  <- reg_tree$cptable[reg_tree$cptable[,4] <= best[4]+best[5],]
 cp   <- ose[1]
@@ -217,7 +219,7 @@ base_tree <- rpart(formula,
                   control = rpart.control(cp = reg_tree$cptable[1]))
 
 # Model performance
-printcp(pruned_tree) # record root node error 
+printcp(pruned_tree) # note root node error 
 root_node_error <- 23.52/520
 
 # Model performance on absolute scale 
