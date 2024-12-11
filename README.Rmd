@@ -1,6 +1,5 @@
 ---
 output: github_document
-bibliography: grateful-refs.bib
 ---
 
 # README
@@ -22,4 +21,5 @@ Scripts 1 and 2 do not need to be run. They retrieve data rich stock information
 ## Packages
 
 `PckgBib.bib`: BibTex citations of package used
+
 `PckgBibReport.html`: html file of packages used
