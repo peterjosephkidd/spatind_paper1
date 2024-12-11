@@ -39,14 +39,13 @@ library(fishtree)
 
 rm(list = ls())
 
-#load.path <- "~/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/"
 #save.path <- "~/OneDrive - CEFAS/Projects/C8503B/PhD/SpatIndAssess(GIT)/SpatIndAssess/Data/DR_Stocks/SurveyData/"
 
 load.path <- paste0(getwd(), "/Data/Initial/")
 save.path <- paste0(getwd(), "/Data/Generated/")
 
-stksurveys <- read_xlsx(paste0(load.path, "DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
-refpts     <- read_xlsx(paste0(load.path, "DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
+stksurveys <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Surveys")
+refpts     <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesData-AllSurveyData-manual.xlsx"), sheet = "Stocks")
 
 source(paste0(getwd(),"/Functions/dataprep_funs.R"))
 
@@ -143,7 +142,7 @@ for (i in 1:length(stks)) {
   srvys_avail <- srvys[srvys %in% survey_names]
   
   if (any(srvys %in% survey_names)) {
-    suppressWarnings(dir.create(paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk), recursive = T))
+    suppressWarnings(dir.create(paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk), recursive = T))
   }
     
 
@@ -167,10 +166,10 @@ for (i in 1:length(stks)) {
         hlhh <- filter_to_matures(hlhh, species, species_aphia, L50, is.hlhh = TRUE)
         ca   <- filter_to_matures(ca,   species, species_aphia, L50, is.hlhh = FALSE)
         
-        save(hh,   file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hh,   r = paste0("HH.L50.",   names(L50levels[lvl])) )))
-        save(hl,   file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hl,   r = paste0("HL.L50.",   names(L50levels[lvl])) )))
-        save(ca,   file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, ca,   r = paste0("CA.L50.",   names(L50levels[lvl])) )))
-        save(hlhh, file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hlhh, r = paste0("HLHH.L50.", names(L50levels[lvl])) )))
+        save(hh,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hh,   r = paste0("HH.L50.",   names(L50levels[lvl])) )))
+        save(hl,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hl,   r = paste0("HL.L50.",   names(L50levels[lvl])) )))
+        save(ca,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, ca,   r = paste0("CA.L50.",   names(L50levels[lvl])) )))
+        save(hlhh, file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hlhh, r = paste0("HLHH.L50.", names(L50levels[lvl])) )))
         message ("- Files saved")
         
       }, error = function(e){
@@ -206,7 +205,7 @@ srvys <- unique(stksurveys[stksurveys$StockKeyLabel == stk,]$SurveyAcronymn)
 srvys_avail <- srvys[srvys %in% survey_names]
 
 if (any(srvys %in% survey_names)) {
-  suppressWarnings(dir.create(paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk), recursive = T))
+  suppressWarnings(dir.create(paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk), recursive = T))
 }
 
 for (j in 1:length(srvys_avail)) {
@@ -246,10 +245,10 @@ for (j in 1:length(srvys_avail)) {
         mutate(TrgtSpcsMature = ifelse(!is.na(TrgtSpcsMature.whifiagonis) & TrgtSpcsMature.whifiagonis == 1 | !is.na(TrgtSpcsMature.boscii) & TrgtSpcsMature.boscii == 1, 1, 
                                 ifelse(!is.na(TrgtSpcsMature.whifiagonis) & TrgtSpcsMature.whifiagonis == 0 | !is.na(TrgtSpcsMature.boscii) & TrgtSpcsMature.boscii == 0, 0, NA)))
     
-      save(hh,   file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hh,   r = paste0("HH.L50.",   names(L50levels[lvl])) )))
-      save(hl,   file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hl,   r = paste0("HL.L50.",   names(L50levels[lvl])) )))
-      save(ca,   file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, ca,   r = paste0("CA.L50.",   names(L50levels[lvl])) )))
-      save(hlhh, file = paste0(save.path, "DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hlhh, r = paste0("HLHH.L50.", names(L50levels[lvl])) )))
+      save(hh,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hh,   r = paste0("HH.L50.",   names(L50levels[lvl])) )))
+      save(hl,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hl,   r = paste0("HL.L50.",   names(L50levels[lvl])) )))
+      save(ca,   file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, ca,   r = paste0("CA.L50.",   names(L50levels[lvl])) )))
+      save(hlhh, file = paste0(getwd(), "/Data/Generated/DR_Stocks/SurveyData/Matures/", stk, "/", namefile(stk, hlhh, r = paste0("HLHH.L50.", names(L50levels[lvl])) )))
       
       message("- Files saved")
     }, error = function(e){
@@ -262,9 +261,9 @@ for (j in 1:length(srvys_avail)) {
   }
 }
 
-load(paste0(save.path, "/DR_Stocks/SurveyData/Matures/", stk, "SWC-IBTS.Yr1985-2010.Q1.Q4.HLHH.L50.upperCI--lez.27.4a6a.rds"))
-load(paste0(save.path, "/DR_Stocks/SurveyData/Matures/", stk, "SWC-IBTS.Yr1985-2010.Q1.Q4.HLHH.L50.mean--lez.27.4a6a.rds"))
-load(paste0(save.path, "/DR_Stocks/SurveyData/Matures/", stk, "SWC-IBTS.Yr1985-2010.Q1.Q4.HLHH.L50.lowerCI--lez.27.4a6a.rds"))
+load(paste0(getwd(), "/Data/Generated//DR_Stocks/SurveyData/Matures/", stk, "/SWC-IBTS.Yr1985-2010.Q1.Q4.HLHH.L50.upperCI--lez.27.4a6a.rds"))
+load(paste0(getwd(), "/Data/Generated//DR_Stocks/SurveyData/Matures/", stk, "/SWC-IBTS.Yr1985-2010.Q1.Q4.HLHH.L50.mean--lez.27.4a6a.rds"))
+load(paste0(getwd(), "/Data/Generated//DR_Stocks/SurveyData/Matures/", stk, "/SWC-IBTS.Yr1985-2010.Q1.Q4.HLHH.L50.lowerCI--lez.27.4a6a.rds"))
 L50.bosc
 L50.whif
 unique(hlhh$TrgtSpcsL50.boscii)
