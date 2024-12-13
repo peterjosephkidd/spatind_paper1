@@ -1091,3 +1091,9 @@ ggsave(filename = paste0(getwd(), "/Output/Plots/sa_curve.png"), sa_plot, width 
 
 joint_plot <- cowplot::plot_grid(lorplot, sa_plot, labels = c("a.", "b."), label_size = 10)
 ggsave(filename = paste0(getwd(), "/Output/Plots/lorenz-sa-curves.png"), joint_plot, width = 7, height = 3)
+
+grateful::cite_packages(out.dir = getwd(), 
+                        include.RStudio = TRUE, 
+                        out.file = "PckgBibReport", 
+                        bib.file = "PckgBib",
+                        omit = NULL)
