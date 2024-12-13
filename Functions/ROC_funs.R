@@ -131,7 +131,7 @@ roc_fun4 <- function(data, obs, preds, return = "long", p = FALSE, auclvl = 0.5,
 }
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>#
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>#
-rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, subtitle = TRUE){
+rocR <- function(data, obs, thresh = 1, preds, is.DATRAS = TRUE, format.df = "long", p = FALSE, auclvl = 0.5, subtitle = TRUE){
   #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ROC >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>#
   #> This function takes an observations and predictions then calculates
   #> ROC statisitcs (TP, FP, TN, FP, TSS, AUC)
@@ -142,8 +142,13 @@ rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, 
   #> data: the dataframe with series of obs and preds
   #> obs: the column name in `data` that corresponds to the true observations from 
   #>      which to validate predictions against
+  #> thresh: the binary threshold on the observations to delineate. Observations 
+  #>          greater than or equal to thresh will be classified into 1, values
+  #>          below into 0. These are the states your indicator is trying to 
+  #>          predict.
   #> preds: the column name(s) in `data` that correspond to predictions which you
-  #>        want to validate against obs. This can be a list of column names c()
+  #>        want to validate against obs. This can be a list of column names c().
+  #> is.DATRAS: logical argument to enable usage with general dataframes
   #> format.df: can be set to "widelist" or "long". 
   #>         "widelist" will output a df per 
   #>         pred in wide format. These will be stored in a list of wide dfs. 
@@ -162,15 +167,20 @@ rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, 
     
     pred <- preds[i]
     writeLines(paste0(obs, " vs. ", pred))
-    obs_data  <- data[colnames(data) == state]
-    status    <- as.vector(obs_data >= 1)
+    obs_data  <- data[colnames(data) == obs]
+    status    <- as.vector(obs_data >= thresh)
     pred_data <- data[colnames(data) == pred]
     
     # select data
+    if (is.DATRAS == TRUE) {
     roc2 <- data %>% 
       select("Year", "Quarter", "StockKeyLabel", "SurveyIndex", "SurveyName", "SurveyNameIndex") %>%
       cbind(., obs_data, pred_data, status) %>%
       arrange(., pick(pred))
+    } else {
+      roc2 <- cbind(obs_data, pred_data, status) %>%
+        arrange(., pick(pred))
+    }
     
     #roc2 <- roc2[!is.na(roc2$pred),] # remove rows with NAs in the spat ind (usually from where the ere wasnt data to calucate the index)
     rocoutput2 <- list()
@@ -246,32 +256,47 @@ rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, 
       rocoutput$AUC <- NA
     } else {
       
-      botleft <- c(998, 
-                   unique(rocoutput$Quarter), 
-                   unique(rocoutput$StockKeyLabel), 
-                   unique(rocoutput$SurveyIndex), 
-                   unique(rocoutput$SurveyName), 
-                   unique(rocoutput$SurveyNameIndex),  
-                   NA, 
-                   max(rocoutput[colnames(rocoutput) == pred], na.rm = T) + 0.01, 
-                   NA, 
-                   0, length(roc2$status[roc2$status == "TRUE"]), length(roc2$status[roc2$status == "FALSE"]), 0, 0, 0, 0)
+      if(is.DATRAS) {
+        botleft <- c(998, 
+                     unique(rocoutput$Quarter), 
+                     unique(rocoutput$StockKeyLabel), 
+                     unique(rocoutput$SurveyIndex), 
+                     unique(rocoutput$SurveyName), 
+                     unique(rocoutput$SurveyNameIndex),  
+                     NA, 
+                     max(rocoutput[colnames(rocoutput) == pred], na.rm = T) + 0.01, 
+                     NA, 
+                     0, 
+                     length(roc2$status[roc2$status == "TRUE"]), 
+                     length(roc2$status[roc2$status == "FALSE"]), 0, 0, 0, 0)
+      } else {
+        botleft <- c(NA, 
+                     max(rocoutput[colnames(rocoutput) == pred], na.rm = T) + 0.01, 
+                     NA, 
+                     0, 
+                     length(roc2$status[roc2$status == "TRUE"]), 
+                     length(roc2$status[roc2$status == "FALSE"]), 0, 0, 0, 0)
+      }
       
       rocoutput <- rbind(rocoutput, botleft)
       
       rocoutput <- rocoutput %>%
-        mutate(TP = as.numeric(TP),
-               FP = as.numeric(FP),
-               TN = as.numeric(TN),
-               FN = as.numeric(FN),
+        mutate(TP  = as.numeric(TP),
+               FP  = as.numeric(FP),
+               TN  = as.numeric(TN),
+               FN  = as.numeric(FN),
                TPR = as.numeric(TPR),
                FPR = as.numeric(FPR),
-               TSS = as.numeric(TSS),
-               Year = as.numeric(Year))
+               TSS = as.numeric(TSS)) %>%
+      {if (is.DATRAS) mutate(., Year = as.numeric(Year)) else .}
       
       TPRauc <- na.omit(rocoutput)
       rocoutput$AUC <- sum(diff(1-TPRauc$FPR)*zoo::rollmean(TPRauc$TPR,2)) 
     }
+    
+    roc_cols <- c("TP", "FP", "TN", "FN", "TPR", "FPR", "TSS", "AUC")
+    rocoutput <- rocoutput %>%
+      mutate(across(all_of(roc_cols), ~ as.numeric(.)))
     
     roc_widelist[[i]] <- rocoutput
     
@@ -288,10 +313,9 @@ rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, 
         mutate(colr = if_else(AUC <= auclvl, "red", "limegreen"))
       rocoutput3b <- rocoutput3[!is.na(rocoutput3[colnames(rocoutput3) == pred]),]
       
-      rocoutput4 <- filter(rocoutput3, Year > 1000)
-      rocoutput4$cFPR <- filter(rocoutput3, Year > 1000)
-      
-      if(subtitle == T){
+      if(subtitle == T & is.DATRAS == T){
+        rocoutput4 <- filter(rocoutput3, Year > 1000)
+        rocoutput4$cFPR <- filter(rocoutput3, Year > 1000)
         subtext <- paste0(unique(rocoutput3$StockKeyLabel), " | ", unique(rocoutput3$SurveyNameIndex), " | ", min(as.numeric(rocoutput4$Year)), " - ", max(as.numeric(rocoutput4$Year)), " | Qrs ", unique(rocoutput3$Quarter))
       } else{subtext <- NULL}
       
@@ -306,7 +330,7 @@ rocR <- function(data, obs, preds, format.df = "long", p = FALSE, auclvl = 0.5, 
     }
     
     roc_long <- as.data.frame(data.table::rbindlist(roc_longlist))
-    
+
   }
   
   if(format.df == "widelist"){
