@@ -687,7 +687,7 @@ hmap <- ggplot(hmap_data_long, aes(y = col_index, x = Indicator, fill = Mean)) +
   geom_tile() +
   geom_text(aes(label = cond)) +
   scale_fill_gradient2(low = "red3", mid = "white", high = "green4", limits = c(0,1), midpoint = 0.5) +
-  geom_vline(xintercept = c(3.5, 5.5), linetype = "solid") +
+  #geom_vline(xintercept = c(3.5, 5.5), linetype = "solid") +
   labs(title = "",
        y     = "",
        x     = "",
@@ -699,8 +699,19 @@ hmap <- ggplot(hmap_data_long, aes(y = col_index, x = Indicator, fill = Mean)) +
         panel.border    = element_blank(),
         legend.position = "bottom",         
         legend.box      = "horizontal",
-        axis.text.x     = element_text(angle = 45, hjust = 0)        
+        axis.text.x     = element_text(angle = 45, hjust = 0)
         )
+
+hmap <- hmap +  coord_cartesian(clip = "off") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_text(colour = "black")) +
+  annotate("text", x = c(2,4.5,8), y = 55.5, size = 3.5, fontface = "bold",
+           label = c("Dispersion", "Occupancy", "Aggregation")) +
+  annotate("text", x = c(seq(1,10)), y = 53.5, angle = 45, size = 3, vjust = -0.01,
+           label = c("Inertia", "EOO", "ELA", "POPR", "POPH", "Gini", "D95", "SA", "EA", "SPI")) +
+  annotate("segment", x=c(3.5,5.5), xend = c(3.5,5.5), y=0.5, yend=53.5)
+
 
 hmap
 
