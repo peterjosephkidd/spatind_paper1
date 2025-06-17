@@ -22,6 +22,9 @@ sa_data  <- read_xlsx(paste0(getwd(), "/Data/Initial/DR_Stocks/StockInfo/icesDat
 load(paste0(getwd(), "/Output/Data/SpatInds/spatinds_4.rds")) # Spatial Indicator Data
 load(paste0(getwd(), "/Data/Generated/DR_Stocks/StockNames/stk_names_3a.rds")) # stk_names from data_3a_Mature.R
 
+suppressWarnings(dir.create(paste0(getwd(), "/Output/Data/CCF/"), recursive = T))
+suppressWarnings(dir.create(paste0(getwd(), "/Output/Plots/CCF/"), recursive = T))
+
 # 2. Prepare Data ####
 # Check we are not missing any stocks
 identical(stk_names, unique(spatinds$StockKeyLabel))
@@ -80,12 +83,14 @@ ccf.df <- ssb.ref.long %>%
     stats::ccf(bio, spatind, plot = FALSE)
   }))
 
-# 3.2 Confidence limits ####
+## 3.2 Confidence limits ####
 ccf.df <- ccf.df %>%
   mutate(n_data_rows = purrr::map_int(data, ~ nrow(.x)),
          conf_limit = 1.96 / sqrt(n_data_rows)) # 95% CI
 
-# 3.3. Identify best lag ####
+save(ccf.df, file = paste0(paste0(getwd(), "/Output/Data/CCF/ccf_rawdf.rds")))
+
+## 3.3. Identify best lag ####
 ccf_summary <- ccf.df %>%
   mutate(
     max_idx = purrr::map_int(CCF_res, ~{
@@ -118,6 +123,10 @@ ccf_summary <- ccf.df %>%
       TRUE ~ "noise")
   ) %>%
   select(L50lvl, StockKeyLabel, SurveyName, SurveyIndex, Quarter, Indicator, ind_category, n_data_rows, conf_limit, best_lag, best_acf, signal)
+
+ccf_summary$Analysis <- paste0(ccf_summary$StockKeyLabel, ": ", ccf_summary$SurveyName, ", Qr ", ccf_summary$Quarter, ", Index = ", ccf_summary$SurveyIndex)
+
+save(ccf_summary, file = paste0(paste0(getwd(), "/Output/Data/CCF/ccf_summary.rds")))
 
 ### 3.3.1 Explore NAs ####
 na_cases <- ccf_summary %>%
@@ -164,106 +173,9 @@ ccf.df %>%
   ) %>%
   filter(!has_variation)
 
-## 3.4 Plot Best Lags ####
-ccf_summary$Analysis <- paste0(ccf_summary$StockKeyLabel, ": ", ccf_summary$SurveyName, ", Qr ", ccf_summary$Quarter, ", Index = ", ccf_summary$SurveyIndex)
 
-### 3.4.1 Scatter Plot ####
-ccf_summary %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)")) %>%
-  ggplot(aes(x = best_lag, y = best_acf, color = signal, shape = L50lvl)) +
-  geom_point(alpha = 0.7, size = 2) +
-  facet_grid( ~ Indicator) +
-  labs(
-    title = "Best Lag vs ACF by Indicator and L50lvl",
-    x = "Best Lag (years)",
-    y = "ACF at Best Lag"
-  ) +
-  scale_shape_manual(
-    values = c(
-      "mean" = 1,       # X
-      "upperCI" = 2,    # triangle
-      "lowerCI" = 6    # filled square
-    )
-  ) +
-  theme_minimal()
-
-### 3.4.2 Vertical Plot ####
-mean_lines <- ccf_summary %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)")) %>%
-  group_by(L50lvl, Indicator) %>%
-  summarise(mean_best_lag = mean(best_lag, na.rm = TRUE)) %>%
-  ungroup()
-
-#### 1
-ccf_summary %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)")) %>%
-  ggplot() +
-  geom_line(aes(x = Analysis, y = best_lag, group = Indicator), colour = "grey30") +
-  geom_hline(data = mean_lines, aes(yintercept = mean_best_lag), linetype = "dashed", colour = "black") +
-  geom_point(aes(x = Analysis, y = best_lag, size = abs(best_acf), shape = L50lvl, colour = ind_category)) +
-  coord_flip() +
-  facet_grid(L50lvl ~ Indicator) +
-  labs(
-    title = "Best Lag by Stock for L50lvl = mean",
-    y = "Best Lag (Years)",
-    x = "Stock & Survey",
-    size = "|ACF|",
-    shape = "L50 Level" 
-  ) + 
-  scale_shape_manual(
-    values = c(
-      "mean" = 1,       # X
-      "upperCI" = 2,    # triangle
-      "lowerCI" = 6    # filled square
-    )
-  ) + 
-  theme_minimal()
-
-#### 2
-ccf_summary %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)")) %>%
-  filter(signal == "signal", best_lag > -5, best_lag < 5) %>%
-  ungroup() %>%
-  #mutate(Analysis = forcats::fct_reorder(Analysis, abs(best_lag))) %>%
-  ggplot() +
-  #geom_point(aes(x = Analysis, y = best_lag, size = abs(best_acf), shape = L50lvl, colour = Indicator)) +
-  geom_col(aes(x = Analysis, y = best_lag, fill = signal)) +
-  geom_hline(yintercept = 0, colour = "black") +
-  #coord_flip() +
-  facet_grid(L50lvl ~ Indicator) +
-  labs(
-    title = "Best Lag by Stock for L50lvl = mean",
-    y = "Best Lag (Years)",
-    x = "Stock & Survey",
-  ) + 
-  theme_minimal()
-
-
-#### 3
-ccf_summary %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)")) %>%
-  filter(signal == "signal") %>%
-  ungroup() %>%
-  #mutate(Analysis = forcats::fct_reorder(Analysis, abs(best_lag))) %>%
-  ggplot() +
-  #geom_point(aes(x = Analysis, y = best_lag, size = abs(best_acf), shape = L50lvl, colour = Indicator)) +
-  geom_col(aes(x = Analysis, y = best_acf, fill = Indicator)) +
-  geom_hline(yintercept = 0, colour = "black") +
-  geom_vline(xintercept = 0, colour = "black", lty = 2) +
-  #coord_flip() +
-  facet_grid(L50lvl ~ Indicator) +
-  labs(
-    title = "Best Lag by Stock for L50lvl = mean",
-    x = "Best Lag (Years)",
-    y = "CCF",
-  ) + 
-  theme_minimal()
-
-# 4. CCF Plots (delete) ####
-#> The lag that maximises CCF is not always signal
-#> Identify lags that provide signal
-
-## 4.1 Individaul Case ####
+## 3.4. Quick plot ####
+### 3.4.1 Individaul Case ####
 ccfplot <- ccf.df %>%
   filter(L50lvl == "mean",
          StockKeyLabel == "ple.27.420",
@@ -291,7 +203,7 @@ ggplot(ccfplotdf, aes(x = Lag, y = CCF)) +
   ) +
   theme_minimal()
 
-## 4.2 All cases ####
+## 3.5 Long data ####
 ccf_long <- ccf.df %>%
   mutate(
     ccf_tidy = purrr::map(CCF_res, ~ {
@@ -310,47 +222,14 @@ ccf_long <- ccf.df %>%
     )
   )
 
+ccf_long <- ccf_long %>%
+  mutate(Indicator = forcats::fct_recode(Indicator, "Gini" = "Gini Index"))
+
 ccf_long$Analysis <- paste0(ccf_long$StockKeyLabel, ": ", ccf_long$SurveyName, ", Qr ", ccf_long$Quarter, ", Index = ", ccf_long$SurveyIndex)
 
-ccf_long %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)"),
-         signal == "signal") %>%
-  ungroup() %>%
-  #mutate(Analysis = forcats::fct_reorder(Analysis, abs(best_lag))) %>%
-  ggplot() +
-  #geom_point(aes(x = Analysis, y = best_lag, size = abs(best_acf), shape = L50lvl, colour = Indicator)) +
-  geom_col(aes(x = Analysis, y = Lag, fill = ind_category)) +
-  geom_hline(yintercept = 0, colour = "black") +
-  coord_flip() +
-  facet_grid(L50lvl ~ Indicator) +
-  labs(
-    title = "Best Lag by Stock for L50lvl = mean",
-    y = "Best Lag (Years)",
-    x = "Stock & Survey",
-  ) + 
-  theme_minimal()
+save(ccf_long, file = paste0(paste0(getwd(), "/Output/Data/CCF/ccf_long.rds")))
 
-ccf_long %>%
-  filter(!Indicator %in% c("CoG (x)", "CoG (y)")) %>%
-  ggplot(aes(x = Lag, y = CCF)) +
-  geom_col(aes(fill = ind_category)) +
-  geom_hline(yintercept = 0, colour = "black") +
-  geom_hline(aes(yintercept = conf_limit), colour = "grey20", lty = 2) +
-  geom_hline(aes(yintercept = 0-conf_limit), colour = "grey20", lty = 2) +
-  geom_vline(xintercept = 0, colour = "black") +
-  facet_grid(~Indicator, scales = "free_x") +
-  labs(
-    title = "CCF plots by Indicator and L50 level",
-    x = "Lag (Years)",
-    y = "Cross-correlation"
-  ) +
-  theme_minimal()
-
-
-
-
-
-# 5. L50 Sensitivity test ####
+# 4. L50 Sensitivity test ####
 # Are the best time lags different between L50 conditions?
 ccf_filtered <- ccf_long %>%
   group_by(L50lvl, StockKeyLabel, SurveyIndex, SurveyName, Quarter,
@@ -363,7 +242,7 @@ ccf_filtered <- ccf_long %>%
 ccf_filtered %>%
   count(L50lvl)
 
-## 5.1. Kruskal ####
+## 4.1. Kruskal ####
 kruskal_lag <- kruskal.test(Lag ~ L50lvl, data = ccf_filtered)      # Lag comparison
 kruskal_ccf <- kruskal.test(CCF ~ L50lvl, data = ccf_filtered)      # Correlation strength comparison
 
@@ -387,9 +266,9 @@ kruskal_overall_results <- bind_rows(
 )
 
 print(kruskal_overall_results)
+save(kruskal_overall_results, file = paste0(paste0(getwd(), "/Output/Data/CCF/ccf_kruskal_L50.rds")))
 
-
-## 5.2 Wilcoxon ####
+## 4.2 Wilcoxon ####
 # Are the best time lags different between L50 conditions
 # Wilcoxon test comparing each combination of L50lvls
 get_wilcox_result <- function(df) {
@@ -409,12 +288,12 @@ wilcox_results <- bind_rows(
 )
 
 print(wilcox_results)
+save(wilcox_results, file = paste0(paste0(getwd(), "/Output/Data/CCF/ccf_wilcoxon_L50.rds")))
 
-
-# 6. Plots ####
-## 6.1 SSB or Indicator Lead?
+# 5. Plots ####
+## 5.1 Propplot: SSB or Indicator Lead? ####
 # When there is signal does the indicator lead or SSB?
-ccf_filtered %>%
+propbest <- ccf_filtered %>%
   ungroup() %>%
   filter(signal == "signal", 
          !Indicator %in% c("CoG (x)", "CoG (y)"),
@@ -436,7 +315,7 @@ ccf_filtered %>%
   geom_text(
     aes(label = label, group = lag_direction),
     position = position_stack(vjust = 0.5),
-    size = 3,
+    size = 5,
     colour = "black"
   ) +
   scale_alpha_manual(
@@ -459,13 +338,28 @@ ccf_filtered %>%
     x = "Indicator",
   ) +
   theme_minimal() +
-  theme(
-    axis.text.x = element_text(angle = 30, hjust = 1),
-    panel.grid.major.x = element_blank()
-  )
+  theme(axis.text.x = element_text(angle = 30, size = 15, hjust=1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        # Panels
+        panel.grid.major.y = element_line(colour = "grey90"),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor   = element_blank(),
+        panel.background   = element_blank(),
+        #panel.border       = element_rect(colour = "black", fill = NA),
+        strip.background   = element_rect(colour = "black"),
+        strip.text         = element_text(size = 20),
+        # Legend
+        legend.position = "right",
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 15))
 
-## 6.2. Best Lags (signal and noise) ####
-ccf_long %>%
+propbest
+
+ggsave(paste0(getwd(), "/Output/Plots/CCF/CCF_propplot.png"), propbest, height = 10, width = 14)
+
+## 5.2. Best Lags (signal and noise) ####
+bestlag <- ccf_long %>%
   group_by(L50lvl, StockKeyLabel, SurveyIndex, SurveyName, Quarter, Indicator, ind_category, Analysis) %>%
   mutate(best_lag = if_else(row_number(desc(abs(CCF))) == 1, "best", "x")) %>%
   filter(best_lag == "best",
@@ -474,15 +368,11 @@ ccf_long %>%
   select(-c(data, CCF_res, CCF)) %>%
   ggplot(aes(x = Analysis, y = Lag)) +
   geom_hline(yintercept = 0, colour = "grey30") +
-  #geom_col(aes(fill = ind_category, alpha = signal, colour = signal)) +
   geom_segment(aes(x = Analysis, xend = Analysis,
                    y = 0, yend = Lag,
                    alpha = signal, colour = signal)) +
   geom_point(aes(fill = ind_category, colour = signal, alpha = signal),
              size = 3, shape = 21, stroke = 0.5) +
-  #geom_point(data = function(d) d %>% filter(Lag == 0),
-  #           aes(x = Analysis, y = Lag, fill = ind_category, alpha = signal, colour = signal),
-  #           size = 3, shape = 21, stroke = 0.5) +
   facet_grid(~Indicator) +
   coord_flip() +
   scale_alpha_manual(
@@ -493,7 +383,7 @@ ccf_long %>%
   scale_colour_manual(
     values = c("signal" = "grey30", "noise" = "transparent"),
     labels = c("signal" = "Significant", "noise" = "Noise"),
-    name = "Signal Strength"
+    name = "Signal Strength2"
   ) +
   scale_fill_manual(
     breaks = c("Dispersion", "Occupancy", "Aggregation"),
@@ -506,10 +396,40 @@ ccf_long %>%
     y = "Lag (Years)",
     x = "Stock & Survey"
   ) +
-  theme_minimal()
+  guides(colour = "none",
+         fill = guide_legend(
+           nrow = 1, 
+           override.aes = list(size = 5)
+           ),
+         alpha = guide_legend(
+           nrow=1,
+           override.aes = list(size = 5)
+           )
+         ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, size = 12, hjust=1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 20),
+        # Panels
+        panel.grid.major.y = element_line(colour = "grey90"),
+        panel.grid.major.x = element_line(colour = "grey90"),
+        panel.grid.minor   = element_blank(),
+        panel.background   = element_blank(),
+        strip.text         = element_text(size = 20),
+        # Legend
+        legend.position = "bottom",
+        legend.justification = c(0,0),
+        legend.box.just = "left",
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 15))
 
-## 6.3 Boxplot of best lags (signal) ####
-ccf_long %>%
+bestlag
+
+ggsave(paste0(getwd(), "/Output/Plots/CCF/CCF_bestlag_lollipop.png"), bestlag, height = 20, width = 18)
+
+## 5.3 Boxplot of best lags (signal) ####
+inds[8] <- "Gini"
+boxp <- ccf_long %>%
   group_by(L50lvl, StockKeyLabel, SurveyIndex, SurveyName, Quarter, Indicator, ind_category, Analysis) %>%
   mutate(best_lag = if_else(row_number(desc(abs(CCF))) == 1, "best", "x")) %>%
   filter(best_lag == "best",
@@ -535,4 +455,23 @@ ccf_long %>%
     x = "Indicator",
   ) +
   coord_flip() +
-  theme_minimal() 
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, size = 15, hjust=1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        # Panels
+        panel.grid.major.y = element_line(colour = "grey90"),
+        panel.grid.major.x = element_line(colour = "grey90"),
+        panel.grid.minor   = element_blank(),
+        panel.background   = element_blank(),
+        strip.text         = element_text(size = 20),
+        # Legend
+        legend.position = "bottom",
+        legend.justification = c(0,0),
+        legend.box.just = "left",
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 15))
+
+boxp
+
+ggsave(paste0(getwd(), "/Output/Plots/CCF/CCF_boxplot.png"), boxp, height = 10, width = 14)
